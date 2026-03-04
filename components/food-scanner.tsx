@@ -99,6 +99,16 @@ export function FoodScanner() {
       )
 
       const data = await response.json()
+
+      if (data.error) {
+        console.error("[v0] API Error:", data.error.message)
+        throw new Error(data.error.message)
+      }
+
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No response from food analysis")
+      }
+
       const content = data.candidates[0].content.parts[0].text
       const parsed = JSON.parse(content)
       setResults(Array.isArray(parsed) ? parsed : [parsed])

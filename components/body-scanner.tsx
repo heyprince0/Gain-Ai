@@ -92,6 +92,16 @@ export function BodyScanner() {
       )
 
       const data = await response.json()
+
+      if (data.error) {
+        console.error("[v0] API Error:", data.error.message)
+        throw new Error(data.error.message)
+      }
+
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No response from body analysis")
+      }
+
       const content = data.candidates[0].content.parts[0].text
       const parsed = JSON.parse(content)
       setResults(parsed)
