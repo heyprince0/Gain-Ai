@@ -58,10 +58,8 @@ export function AiChat() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            system: {
-              instructions:
-                "You are GainAi Coach, an expert fitness and nutrition AI assistant. You provide personalized advice on workouts, nutrition, body composition, and fitness goals. Be encouraging, knowledgeable, and practical in your responses. Keep responses concise (2-3 sentences) and actionable.",
-            },
+            system:
+              "You are GainAi Coach, an expert fitness and nutrition AI assistant. You provide personalized advice on workouts, nutrition, body composition, and fitness goals. Be encouraging, knowledgeable, and practical in your responses. Keep responses concise (2-3 sentences) and actionable.",
             contents: messages
               .concat(userMsg)
               .map((msg) => ({
@@ -73,6 +71,12 @@ export function AiChat() {
       )
 
       const data = await response.json()
+      console.log("[v0] API Response:", data)
+
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        throw new Error("Invalid API response structure")
+      }
+
       const aiResponse =
         data.candidates[0].content.parts[0].text ||
         "Sorry, I had trouble processing that. Try again!"
