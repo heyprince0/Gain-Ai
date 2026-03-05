@@ -20,14 +20,6 @@ const initialMessages: Message[] = [
   },
 ]
 
-const coachResponses = [
-  "Great question! For optimal muscle growth, aim for 1.6-2.2g of protein per kg of body weight daily. Spread this across 4-5 meals for best absorption.",
-  "I'd recommend focusing on compound movements like squats, deadlifts, and bench press. These recruit the most muscle fibers and give you the best bang for your buck.",
-  "For fat loss while preserving muscle, aim for a moderate calorie deficit of 300-500 calories below maintenance. Keep protein high and include resistance training 3-4 times per week.",
-  "Recovery is just as important as training! Aim for 7-9 hours of sleep and make sure you're eating enough to support your training intensity.",
-  "Hydration is key! Aim for about 35ml per kg of body weight daily, and add an extra 500ml for every hour of exercise.",
-]
-
 export function AiChat() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>(initialMessages)
@@ -53,7 +45,7 @@ export function AiChat() {
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=AIzaSyA6lUQf3xMJrf5mYzVG5hNKxZj0s5--ThI`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -78,12 +70,11 @@ export function AiChat() {
       const data = await response.json()
 
       if (data.error) {
-        console.error("[v0] API Error:", data.error.message)
         throw new Error(data.error.message)
       }
 
-      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        throw new Error("No response from AI")
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No response from AI Coach")
       }
 
       const aiResponse = data.candidates[0].content.parts[0].text
@@ -94,14 +85,13 @@ export function AiChat() {
       }
       setMessages((prev) => [...prev, assistantMsg])
     } catch (error) {
-      console.error("Error fetching AI response:", error)
-      const fallback: Message = {
+      const errorMsg = error instanceof Error ? error.message : "Failed to get response from AI Coach"
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          coachResponses[Math.floor(Math.random() * coachResponses.length)],
+        content: `Sorry, I encountered an error: ${errorMsg}. Please try again.`,
       }
-      setMessages((prev) => [...prev, fallback])
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setLoading(false)
     }

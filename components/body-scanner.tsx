@@ -21,29 +21,11 @@ interface BodyResult {
   }[]
 }
 
-const sampleResult: BodyResult = {
-  bodyFatPercent: 18.5,
-  category: "Athletic",
-  bmi: 23.4,
-  muscleMass: "Above Average",
-  recommendations: [
-    "Focus on progressive overload for upper body development",
-    "Maintain current cardio routine for fat management",
-    "Increase protein intake to 1.6g per kg of body weight",
-    "Consider adding core-specific training 2-3 times per week",
-  ],
-  composition: [
-    { label: "Muscle", value: 42, color: "bg-primary" },
-    { label: "Fat", value: 18.5, color: "bg-chart-4" },
-    { label: "Bone", value: 15, color: "bg-muted-foreground/40" },
-    { label: "Water", value: 24.5, color: "bg-chart-2" },
-  ],
-}
-
 export function BodyScanner() {
   const [image, setImage] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [results, setResults] = useState<BodyResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = useCallback(
@@ -54,6 +36,7 @@ export function BodyScanner() {
         reader.onload = (ev) => {
           setImage(ev.target?.result as string)
           setResults(null)
+          setError(null)
         }
         reader.readAsDataURL(file)
       }
@@ -64,10 +47,11 @@ export function BodyScanner() {
   const handleAnalyze = useCallback(async () => {
     if (!image) return
     setScanning(true)
+    setError(null)
     try {
       const base64Image = image.split(",")[1]
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=AIzaSyA6lUQf3xMJrf5mYzVG5hNKxZj0s5--ThI`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -82,7 +66,7 @@ export function BodyScanner() {
                     },
                   },
                   {
-                    text: `Analyze this body composition photo and provide fitness insights. Respond with a JSON object containing: bodyFatPercent (estimated number 8-35), category (Athletic/Average/Needs Work), bmi (estimated number 18-30), muscleMass (Above Average/Average/Below Average), recommendations (array of 4 actionable improvement tips), composition (array of 4 objects with label, value, color where labels are Muscle/Fat/Bone/Water and values sum to 100). Only return the JSON object, nothing else.`,
+                    text: `Analyze this body composition photo and provide fitness insights. Respond with a JSON object containing: bodyFatPercent (estimated number 8-35), category (Athletic/Average/Needs Work), bmi (estimated number 18-30), muscleMass (Above Average/Average/Below Average), recommendations (array of 4 actionable improvement tips), composition (array of 4 objects with label, value, color where labels are Muscle/Fat/Bone/Water and values sum to 100). Respond with ONLY a raw JSON object, no markdown, no code blocks, no explanation.`,
                   },
                 ],
               },
@@ -92,12 +76,23 @@ export function BodyScanner() {
       )
 
       const data = await response.json()
-      const content = data.candidates[0].content.parts[0].text
-      const parsed = JSON.parse(content)
+
+      if (data.error) {
+        throw new Error(data.error.message)
+      }
+
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No response from body analysis")
+      }
+
+      const rawText = data.candidates[0].content.parts[0].text
+      const cleanText = rawText.replace(/```json|```/g, "").trim()
+      const parsed = JSON.parse(cleanText)
       setResults(parsed)
     } catch (error) {
-      console.error("Error analyzing body:", error)
-      setResults(sampleResult)
+      const errorMsg = error instanceof Error ? error.message : "Failed to analyze body"
+      setError(errorMsg)
+      setResults(null)
     } finally {
       setScanning(false)
     }
@@ -106,6 +101,7 @@ export function BodyScanner() {
   const handleReset = useCallback(() => {
     setImage(null)
     setResults(null)
+    setError(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [])
 
@@ -200,10 +196,18 @@ export function BodyScanner() {
           {scanning && (
             <Card className="border-border/50">
               <CardContent className="flex flex-col items-center gap-3 p-8">
-                <div className="h-10 w-10 animate-pulse rounded-full bg-primary/20" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">
                   AI is analyzing your body composition...
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {error && (
+            <Card className="border-red-500/50 bg-red-500/5">
+              <CardContent className="p-4">
+                <p className="text-sm text-red-600">Error: {error}</p>
               </CardContent>
             </Card>
           )}

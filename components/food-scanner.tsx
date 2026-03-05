@@ -17,40 +17,11 @@ interface FoodResult {
   servingSize: string
 }
 
-const sampleResults: FoodResult[] = [
-  {
-    name: "Grilled Chicken Breast",
-    calories: 284,
-    protein: 53,
-    carbs: 0,
-    fats: 6,
-    fiber: 0,
-    servingSize: "200g",
-  },
-  {
-    name: "Brown Rice Bowl",
-    calories: 216,
-    protein: 5,
-    carbs: 45,
-    fats: 2,
-    fiber: 4,
-    servingSize: "1 cup (195g)",
-  },
-  {
-    name: "Mixed Green Salad",
-    calories: 120,
-    protein: 4,
-    carbs: 12,
-    fats: 7,
-    fiber: 5,
-    servingSize: "1 bowl (150g)",
-  },
-]
-
 export function FoodScanner() {
   const [image, setImage] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [results, setResults] = useState<FoodResult[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = useCallback(
@@ -61,6 +32,7 @@ export function FoodScanner() {
         reader.onload = (ev) => {
           setImage(ev.target?.result as string)
           setResults(null)
+          setError(null)
         }
         reader.readAsDataURL(file)
       }
@@ -71,10 +43,11 @@ export function FoodScanner() {
   const handleScan = useCallback(async () => {
     if (!image) return
     setScanning(true)
+    setError(null)
     try {
       const base64Image = image.split(",")[1]
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=AIzaSyA6lUQf3xMJrf5mYzVG5hNKxZj0s5--ThI`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -89,7 +62,7 @@ export function FoodScanner() {
                     },
                   },
                   {
-                    text: `Analyze this food image and provide detailed nutritional information. For each food item detected, respond with a JSON array containing objects with these fields: name (string), calories (number), protein (number), carbs (number), fats (number), fiber (number), servingSize (string). Be specific and accurate. Only return the JSON array, nothing else.`,
+                    text: `Analyze this food image and provide detailed nutritional information. For each food item detected, respond with a JSON array containing objects with these fields: name (string), calories (number), protein (number), carbs (number), fats (number), fiber (number), servingSize (string). Be specific and accurate. Respond with ONLY a raw JSON array, no markdown, no code blocks, no explanation.`,
                   },
                 ],
               },
@@ -99,12 +72,23 @@ export function FoodScanner() {
       )
 
       const data = await response.json()
-      const content = data.candidates[0].content.parts[0].text
-      const parsed = JSON.parse(content)
+
+      if (data.error) {
+        throw new Error(data.error.message)
+      }
+
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No response from food analysis")
+      }
+
+      const rawText = data.candidates[0].content.parts[0].text
+      const cleanText = rawText.replace(/```json|```/g, "").trim()
+      const parsed = JSON.parse(cleanText)
       setResults(Array.isArray(parsed) ? parsed : [parsed])
     } catch (error) {
-      console.error("Error analyzing food:", error)
-      setResults(sampleResults)
+      const errorMsg = error instanceof Error ? error.message : "Failed to analyze food"
+      setError(errorMsg)
+      setResults(null)
     } finally {
       setScanning(false)
     }
@@ -113,6 +97,7 @@ export function FoodScanner() {
   const handleReset = useCallback(() => {
     setImage(null)
     setResults(null)
+    setError(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [])
 
@@ -220,10 +205,18 @@ export function FoodScanner() {
           {scanning && (
             <Card className="border-border/50">
               <CardContent className="flex flex-col items-center gap-3 p-8">
-                <div className="h-10 w-10 animate-pulse rounded-full bg-primary/20" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">
                   AI is analyzing your meal...
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {error && (
+            <Card className="border-red-500/50 bg-red-500/5">
+              <CardContent className="p-4">
+                <p className="text-sm text-red-600">Error: {error}</p>
               </CardContent>
             </Card>
           )}
