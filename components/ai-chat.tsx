@@ -5,6 +5,8 @@ import { MessageCircle, X, Send, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
+const API_KEY = "AIzaSyDHvGYDhy3ixuyPEqPR2oXYZF3GC7ellVk"
+
 interface Message {
   id: string
   role: "user" | "assistant"
@@ -45,7 +47,7 @@ export function AiChat() {
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=AIzaSyA6lUQf3xMJrf5mYzVG5hNKxZj0s5--ThI`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
