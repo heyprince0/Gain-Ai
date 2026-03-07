@@ -178,7 +178,7 @@
   .fixed.bottom-4, .fixed.bottom-6,
   [class*='fixed'][class*='bottom'],
   .chat-widget, .chatbot-button {
-    bottom: 85px !important;
+    bottom: 90px !important;
   }
 
   /* Add padding so content not hidden behind nav */

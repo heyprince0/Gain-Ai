@@ -110,10 +110,7 @@ export function AiChat() {
         )}
         style={{
           position: 'fixed',
-          bottom:
-            typeof window !== 'undefined' && window.innerWidth < 1024
-              ? '85px'
-              : '24px',
+          bottom: '90px',
           right: '24px',
           zIndex: 998,
         }}
