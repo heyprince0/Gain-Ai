@@ -11,9 +11,15 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
 interface Profile {
-  full_name: string
-  daily_calories: number
-  daily_protein: number
+  id: string
+  name: string
+  age: number
+  weight: number
+  height: number
+  goal: string
+  calorie_goal: number
+  protein_goal: number
+  created_at: string
 }
 
 interface FoodScan {
@@ -46,35 +52,42 @@ export function Dashboard() {
 
       try {
         // Fetch profile
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select()
+          .select('id, name, age, weight, height, goal, calorie_goal, protein_goal, created_at')
           .eq('id', user.id)
           .single()
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Profile error:', profileError)
+        }
         if (profileData) setProfile(profileData)
 
         // Fetch food scans
-        const { data: foodData } = await supabase
+        const { data: foodData, error: foodError } = await supabase
           .from('food_scans')
-          .select()
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
+        
+        if (foodError) console.error('Food scans error:', foodError)
         if (foodData) setFoodScans(foodData)
 
         // Fetch latest body scan
-        const { data: bodyData } = await supabase
+        const { data: bodyData, error: bodyError } = await supabase
           .from('body_scans')
-          .select()
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
-        if (bodyData) setBodyScan(bodyData)
+        
+        if (bodyError) console.error('Body scan error:', bodyError)
+        if (bodyData && bodyData.length > 0) setBodyScan(bodyData[0])
 
         // Calculate today's stats
-        const today = new Date().toISOString().split('T')[0]
+        const today = new Date().toISOString()?.split('T')[0] || ''
         const todayScans = foodData?.filter(
-          (scan) => scan.created_at.startsWith(today)
+          (scan) => scan.created_at?.startsWith(today)
         ) || []
         const totalCalories = todayScans.reduce((sum, scan) => sum + (scan.total_calories || 0), 0)
         const totalProtein = todayScans.reduce((sum, scan) => sum + (scan.total_protein || 0), 0)
