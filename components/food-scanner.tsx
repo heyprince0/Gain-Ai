@@ -137,30 +137,24 @@ export function FoodScanner() {
     if (!user || !results || results.length === 0) return
     setSaved(true)
     try {
-      // build insert object that covers both old and new schemas
+      // log full result for debugging
+      console.log("Food scan results:", results)
+      const res = results[0]
       const now = new Date().toISOString()
-      const insert: any = { user_id: user.id, scanned_at: now }
-      if (results.length === 1) {
-        const res = results[0]
-        insert.food_name = res.name
-        insert.calories = res.calories
-        insert.protein = res.protein
-        insert.carbs = res.carbs
-        insert.fats = res.fats
-        insert.fiber = res.fiber ?? 0
+      const insertObj: any = {
+        user_id: user.id,
+        food_name: res?.name || 'Unknown Food',
+        calories: Number(res?.calories) || 0,
+        protein: Number(res?.protein) || 0,
+        carbs: Number(res?.carbs) || 0,
+        fats: Number(res?.fats) || 0,
+        fiber: Number(res?.fiber) || 0,
+        scanned_at: now,
       }
-      // always include totals and array in case table expects them
-      insert.total_calories = totalCalories
-      insert.total_protein = totalProtein
-      insert.total_carbs = totalCarbs
-      insert.total_fats = totalFats
-      insert.foods = results
-      insert.image_url = image
 
-      const { error } = await supabase.from('food_scans').insert(insert)
+      const { error } = await supabase.from('food_scans').insert(insertObj)
       if (error) throw error
       setSaveMessage('✅ Saved to Dashboard!')
-      // refresh dashboard data if user navigates back
       router.refresh()
     } catch (err) {
       setSaveMessage('Failed to save')

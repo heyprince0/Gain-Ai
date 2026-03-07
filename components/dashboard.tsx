@@ -96,25 +96,25 @@ export function Dashboard() {
         const todayScans = foodData?.filter(
           (scan) => scan.scanned_at?.startsWith(today)
         ) || []
-        const totalCalories = todayScans.reduce(
+        const todayCalories = todayScans.reduce(
           (sum, scan) =>
             sum + ((scan.total_calories ?? scan.calories) || 0),
           0
         )
-        const totalProtein = todayScans.reduce(
+        const todayProtein = todayScans.reduce(
           (sum, scan) => sum + ((scan.total_protein ?? scan.protein) || 0),
           0
         )
-        const totalCarbs = todayScans.reduce(
+        const todayCarbs = todayScans.reduce(
           (sum, scan) => sum + ((scan.total_carbs ?? scan.carbs) || 0),
           0
         )
-        const totalFats = todayScans.reduce(
+        const todayFats = todayScans.reduce(
           (sum, scan) => sum + ((scan.total_fats ?? scan.fats) || 0),
           0
         )
 
-        setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: totalCarbs, fats: totalFats })
+        setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: todayCarbs, fats: todayFats })
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
