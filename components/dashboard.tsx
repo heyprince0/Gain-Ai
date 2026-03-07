@@ -89,12 +89,12 @@ export function Dashboard() {
         const todayScans = foodData?.filter(
           (scan) => scan.scanned_at?.startsWith(today)
         ) || []
-        const totalCalories = todayScans.reduce((sum, scan) => sum + (scan.total_calories || 0), 0)
-        const totalProtein = todayScans.reduce((sum, scan) => sum + (scan.total_protein || 0), 0)
-        const totalCarbs = todayScans.reduce((sum, scan) => sum + (scan.total_carbs || 0), 0)
-        const totalFats = todayScans.reduce((sum, scan) => sum + (scan.total_fats || 0), 0)
+        const todayCalories = todayScans?.reduce((sum, scan) => sum + (scan?.total_calories ?? 0), 0) ?? 0
+        const todayProtein = todayScans?.reduce((sum, scan) => sum + (scan?.total_protein ?? 0), 0) ?? 0
+        const totalCarbs = todayScans?.reduce((sum, scan) => sum + (scan?.total_carbs ?? 0), 0) ?? 0
+        const totalFats = todayScans?.reduce((sum, scan) => sum + (scan?.total_fats ?? 0), 0) ?? 0
 
-        setTodayStats({ calories: totalCalories, protein: totalProtein, carbs: totalCarbs, fats: totalFats })
+        setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: totalCarbs, fats: totalFats })
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -147,7 +147,7 @@ export function Dashboard() {
           icon={Flame}
           label="Today's Calories"
           value={todayStats.calories.toString()}
-          subtitle={`of ${profile.daily_calories.toLocaleString()} goal`}
+          subtitle={`of ${(profile.daily_calories ?? 0).toLocaleString()} goal`}
           progress={calPercent}
         />
         <StatCard
@@ -205,7 +205,7 @@ export function Dashboard() {
                       className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'
                     >
                       <span className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleDateString() : ''}
+                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleDateString() : 'N/A'}
                       </span>
                       <span className='text-sm font-semibold'>
                         {scan?.total_calories ?? 0} kcal
@@ -257,7 +257,7 @@ export function Dashboard() {
                         {scan.foods?.[0]?.name || 'Food Scan'}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleString() : ''}
+                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleString() : 'N/A'}
                       </p>
                     </div>
                     <span className='text-sm font-semibold text-foreground'>
@@ -296,7 +296,7 @@ export function Dashboard() {
                         Last Updated
                       </span>
                       <span className='text-sm font-semibold text-foreground'>
-                        {bodyScan?.scanned_at ? new Date(bodyScan.scanned_at).toLocaleDateString() : ''}
+                        {bodyScan?.scanned_at ? new Date(bodyScan.scanned_at).toLocaleDateString() : 'N/A'}
                       </span>
                     </div>
                   </div>
