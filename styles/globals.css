@@ -123,3 +123,78 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* explicit bottom-nav layout/styles */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #0f1318;
+  border-top: 1px solid #1a2028;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 0 20px 0;
+  z-index: 1000;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #5a6672;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.nav-btn.active {
+  color: #00ff88;
+}
+
+.nav-btn-fab {
+  background: #00ff88;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(0,255,136,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .bottom-nav { display: none !important; }
+}
+
+/* Bottom nav - only mobile/tablet */
+.bottom-nav {
+  display: flex; /* show on mobile */
+}
+
+/* Hide bottom nav on desktop */
+@media (min-width: 1024px) {
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Hide top nav on mobile */
+@media (max-width: 1023px) {
+  .top-navbar {
+    display: none !important;
+  }
+}
+
+/* Add bottom padding only on mobile */
+@media (max-width: 1023px) {
+  .main-content {
+    padding-bottom: 80px;
+  }
+}

@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { AuthScreen } from './auth-screen'
 import { ProfileSetup } from './profile-setup'
 import { AiChat } from './ai-chat'
+import { BottomNav } from './bottom-nav'
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, hasProfile } = useAuth()
@@ -68,9 +69,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   }
 
   // Show main app content (home or protected pages)
+  const hideNav = pathname === '/' || showAuthScreen
+
   return (
     <>
-      {children}
+      {/* pad bottom on small screens so content isn't obscured */}
+      <div className='main-content'>{children}</div>
+      {user && hasProfile && !hideNav && <BottomNav />}
       {user && hasProfile && <AiChat />}
     </>
   )
