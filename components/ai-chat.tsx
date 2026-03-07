@@ -105,9 +105,18 @@ export function AiChat() {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:scale-105 active:scale-95",
+          "fixed right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:scale-105 active:scale-95",
           open && "rotate-0"
         )}
+        style={{
+          position: 'fixed',
+          bottom:
+            typeof window !== 'undefined' && window.innerWidth < 1024
+              ? '85px'
+              : '24px',
+          right: '24px',
+          zIndex: 998,
+        }}
         aria-label={open ? "Close chat" : "Open AI coach chat"}
       >
         {open ? (

@@ -1,25 +1,41 @@
 'use client'
 import { LayoutDashboard, ScanLine, Activity } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export function BottomNav() {
   const router = useRouter()
   const pathname = usePathname()
   const isActive = (path: string) => pathname === path
 
+  // detect theme on client
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    setIsDark(
+      typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark')
+    )
+  }, [])
+
+  const inactiveColor = isDark ? '#5a6672' : '#9ca3af'
+  const activeColor = '#00ff88'
+
   return (
-    <nav style={{
-      position: 'fixed',
-      bottom: 0, left: 0, right: 0,
-      background: '#0f1318',
-      borderTop: '1px solid #1a2028',
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      height: '65px',
-      paddingBottom: '8px',
-      zIndex: 9999,
-    }}>
+    <nav
+      className="bottom-nav bg-white dark:bg-[#0f1318] border-t border-gray-200 dark:border-[#1a2028]"
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: 'flex',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        height: '65px',
+        paddingBottom: '8px',
+        zIndex: 9999,
+      }}
+    >
 
       {/* Dashboard */}
       <button type="button"
