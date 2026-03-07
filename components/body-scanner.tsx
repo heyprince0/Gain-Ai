@@ -14,12 +14,18 @@ import { useAuth } from "@/lib/auth-context"
 const API_KEY = "AIzaSyDHvGYDhy3ixuyPEqPR2oXYZF3GC7ellVk"
 
 interface BodyResult {
-  bodyFatPercent: number
-  category: string
+  body_fat: number
   bmi: number
-  muscleMass: string
-  recommendations: string[]
-  composition: {
+  body_type: string
+  body_type_description: string
+  muscle: "Low" | "Average" | "Above Average" | "High"
+  notes: string
+  // keep old/extra fields optional in case the model still returns them
+  bodyFatPercent?: number
+  category?: string
+  muscleMass?: string
+  recommendations?: string[]
+  composition?: {
     label: string
     value: number
     color: string
@@ -122,9 +128,9 @@ export function BodyScanner() {
       const now = new Date().toISOString()
       const insertObj: any = {
         user_id: user.id,
-        body_fat: Number(results.body_fat ?? results.bodyFatPercent ?? results.bodyFat) || 0,
+        body_fat: Number(results.body_fat ?? results.bodyFatPercent ?? 0) || 0,
         notes:
-          results.notes || results.summary || results.analysis || '' ,
+          results.notes || '' ,
         scanned_at: now,
       }
 
@@ -287,15 +293,20 @@ export function BodyScanner() {
                     </p>
                     <Badge
                       variant="secondary"
-                      className="bg-primary/15 text-primary"
+                      className={cn(
+                        results.body_type === 'Ectomorph' && 'text-blue-400',
+                        ['Mesomorph','Athletic'].includes(results.body_type) && 'text-green-400',
+                        ['Endomorph','Overweight','Obese'].includes(results.body_type) && 'text-orange-400',
+                        results.body_type === 'Skinny' && 'text-yellow-400'
+                      )}
                     >
-                      {results.category}
+                      {results.body_type}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <p className="text-2xl font-bold text-primary">
-                        {results.bodyFatPercent}%
+                        {(results.body_fat ?? results.bodyFatPercent)}%
                       </p>
                       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                         Body Fat
@@ -311,10 +322,10 @@ export function BodyScanner() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground">
-                        {results.muscleMass}
+                        {results.body_type}
                       </p>
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Muscle
+                      <p className="text-[10px] leading-tight text-muted-foreground">
+                        {results.body_type_description}
                       </p>
                     </div>
                   </div>
