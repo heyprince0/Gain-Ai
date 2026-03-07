@@ -18,7 +18,11 @@ interface BodyResult {
   bmi: number
   body_type: string
   body_type_description: string
-  muscle: "Low" | "Average" | "Above Average" | "High"
+  muscle: number
+  fat: number
+  bone: number
+  water: number
+  areas_to_improve?: string[]
   notes: string
   // keep old/extra fields optional in case the model still returns them
   bodyFatPercent?: number
@@ -112,9 +116,13 @@ export function BodyScanner() {
 {
   "body_fat": <number>,
   "bmi": <number>,
-  "body_type": "<one of these exact values only: Ectomorph, Mesomorph, Endomorph, Skinny, Athletic, Overweight, Obese, Fat>",
+  "body_type": "<Ectomorph, Mesomorph, Endomorph, Skinny, Athletic, Overweight, Fat, Obese>",
   "body_type_description": "<one line description>",
-  "muscle": "<Low, Average, Above Average, High>",
+  "muscle": <number between 0-100>,
+  "fat": <number between 0-100>,
+  "bone": <number between 0-100>,
+  "water": <number between 0-100>,
+  "areas_to_improve": ["<area 1>", "<area 2>", "<area 3>"],
   "notes": "<brief personalized advice>"
 }
 `
@@ -336,65 +344,44 @@ export function BodyScanner() {
                     Body Composition
                   </p>
 
-                  {/* Stacked bar */}
-                  <div className="mb-4 flex h-6 overflow-hidden rounded-full">
-                    {(results?.composition ?? []).map((item) => (
-                      <div
-                        key={item.label}
-                        className={cn("transition-all", item.color)}
-                        style={{ width: `${item.value}%` }}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {(results?.composition ?? []).map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center gap-2"
-                      >
-                        <div
-                          className={cn(
-                            "h-2.5 w-2.5 rounded-full",
-                            item.color
-                          )}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {item.label}
-                        </span>
-                        <span className="ml-auto text-xs font-semibold text-foreground">
-                          {item.value}%
-                        </span>
-                      </div>
-                    ))}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                      <span>Muscle</span>
+                      <span>{results?.muscle ?? 0}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                      <span>Fat</span>
+                      <span>{results?.fat ?? 0}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                      <span>Bone</span>
+                      <span>{results?.bone ?? 0}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                      <span>Water</span>
+                      <span>{results?.water ?? 0}%</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Recommendations */}
+              {/* Areas to Improve */}
               <Card className="border-border/50">
                 <CardContent className="p-5">
                   <p className="mb-3 text-sm font-semibold text-foreground">
                     Areas to Improve
                   </p>
-                  <div className="flex flex-col gap-2.5">
-                    {(results?.recommendations ?? []).map((rec, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-2.5 text-sm"
-                      >
-                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          {i < 2 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : i === 2 ? (
-                            <Minus className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                        </div>
-                        <p className="leading-relaxed text-muted-foreground">
-                          {rec}
-                        </p>
+                  <div>
+                    {(results?.areas_to_improve ?? []).map((area, i) => (
+                      <div key={i} style={{
+                        padding: '8px 12px',
+                        margin: '4px 0',
+                        background: 'rgba(0,255,136,0.08)',
+                        borderRadius: '8px',
+                        borderLeft: '3px solid #00ff88',
+                        fontSize: '14px'
+                      }}>
+                        {area}
                       </div>
                     ))}
                   </div>
