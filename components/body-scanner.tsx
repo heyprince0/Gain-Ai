@@ -173,6 +173,7 @@ export function BodyScanner() {
       const insertObj: any = {
         user_id: user.id,
         body_fat: Number(results.body_fat ?? results.bodyFatPercent ?? 0) || 0,
+        body_type: results.body_type || 'Unknown',
         notes:
           results.notes || '' ,
         scanned_at: now,

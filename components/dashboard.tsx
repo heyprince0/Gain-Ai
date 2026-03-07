@@ -371,6 +371,25 @@ export function Dashboard() {
                         {bodyScan?.scanned_at ? new Date(bodyScan.scanned_at).toLocaleDateString() : 'N/A'}
                       </span>
                     </div>
+                    {bodyScan?.body_type && (
+                      <div style={{
+                        display: 'inline-block',
+                        marginTop: '8px',
+                        padding: '4px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        background:
+                          bodyScan.body_type === 'Athletic' || bodyScan.body_type === 'Mesomorph' ? '#00ff88' :
+                          bodyScan.body_type === 'Ectomorph' || bodyScan.body_type === 'Skinny' ? '#3b82f6' :
+                          bodyScan.body_type === 'Fat' ? '#ef4444' :
+                          bodyScan.body_type === 'Obese' ? '#dc2626' :
+                          bodyScan.body_type === 'Overweight' ? '#f97316' : '#6b7280',
+                        color: '#000'
+                      }}>
+                        {bodyScan.body_type}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className='text-sm text-muted-foreground'>No body scans yet</p>
