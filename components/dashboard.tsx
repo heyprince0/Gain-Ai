@@ -51,8 +51,9 @@ export function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [foodScans, setFoodScans] = useState<FoodScan[]>([])
   const [todayScans, setTodayScans] = useState<FoodScan[]>([])
+  const [weekScans, setWeekScans] = useState<FoodScan[]>([])
   const [weekCount, setWeekCount] = useState(0)
-  const [groupedScans, setGroupedScans] = useState<Record<string, FoodScan[]>>({})
+  const [weekLabel, setWeekLabel] = useState('')
   const [bodyScan, setBodyScan] = useState<BodyScan | null>(null)
   // compute displayName with fallbacks
   const displayName = profile?.name ||
@@ -81,58 +82,76 @@ export function Dashboard() {
         if (profileData) setProfile(profileData)
         // if profileData doesn't contain a name we may still fallback later
 
-        // Fetch food scans (all)
+        // calculate start of today and week
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+        const todayISO = todayStart.toISOString()
+
+        const getWeekStart = () => {
+          const now = new Date()
+          const day = now.getDay()
+          const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+          const monday = new Date(now.setDate(diff))
+          monday.setHours(0, 0, 0, 0)
+          return monday
+        }
+        const weekStart = getWeekStart()
+
+        // Fetch today's scans only
+        const { data: todayData, error: todayError } = await supabase
+          .from('food_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('scanned_at', todayISO)
+          .order('scanned_at', { ascending: false })
+
+        if (todayError) console.error('Today scans error:', todayError)
+        const todays = todayData || []
+        setTodayScans(todays)
+
+        const todayCalories = todays.reduce(
+          (sum, scan) => sum + (scan.calories ?? scan.total_calories ?? 0),
+          0
+        )
+        const todayProtein = todays.reduce(
+          (sum, scan) => sum + (scan.protein ?? scan.total_protein ?? 0),
+          0
+        )
+        const todayCarbs = todays.reduce(
+          (sum, scan) => sum + (scan.carbs ?? scan.total_carbs ?? 0),
+          0
+        )
+        const todayFats = todays.reduce(
+          (sum, scan) => sum + (scan.fats ?? scan.total_fats ?? 0),
+          0
+        )
+        setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: todayCarbs, fats: todayFats })
+
+        // fetch week scans
+        const { data: weekData, error: weekError } = await supabase
+          .from('food_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('scanned_at', weekStart.toISOString())
+          .order('scanned_at', { ascending: false })
+
+        if (weekError) console.error('Week scans error:', weekError)
+        const weeks = weekData || []
+        setWeekScans(weeks)
+        setWeekCount(weeks.length)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekEnd.getDate() + 6)
+        const label = `${weekStart.toLocaleDateString('en', {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString('en', {month:'short', day:'numeric'})}`
+        setWeekLabel(label)
+
+        // still keep full foodScans array if you want all history later
         const { data: foodData, error: foodError } = await supabase
           .from('food_scans')
           .select('*')
           .eq('user_id', user.id)
           .order('scanned_at', { ascending: false })
-        
         if (foodError) console.error('Food scans error:', foodError)
-        if (foodData) {
-          setFoodScans(foodData)
-
-          // derive today's scans
-          const dayStart = new Date()
-          dayStart.setHours(0, 0, 0, 0)
-          const dayISO = dayStart.toISOString()
-          const todays = foodData.filter((s) => s.scanned_at >= dayISO)
-          setTodayScans(todays)
-
-          const todayCalories = todays.reduce(
-            (sum, scan) => sum + (scan.calories ?? scan.total_calories ?? 0),
-            0
-          )
-          const todayProtein = todays.reduce(
-            (sum, scan) => sum + (scan.protein ?? scan.total_protein ?? 0),
-            0
-          )
-          const todayCarbs = todays.reduce(
-            (sum, scan) => sum + (scan.carbs ?? scan.total_carbs ?? 0),
-            0
-          )
-          const todayFats = todays.reduce(
-            (sum, scan) => sum + (scan.fats ?? scan.total_fats ?? 0),
-            0
-          )
-          setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: todayCarbs, fats: todayFats })
-
-          // week count
-          const weekAgo = new Date()
-          weekAgo.setDate(weekAgo.getDate() - 7)
-          const weekISO = weekAgo.toISOString()
-          const weeks = foodData.filter((s) => s.scanned_at >= weekISO)
-          setWeekCount(weeks.length)
-
-          // grouped history
-          const groups = foodData.reduce<Record<string, FoodScan[]>>((g, scan) => {
-            const date = new Date(scan.scanned_at).toLocaleDateString()
-            if (!g[date]) g[date] = []
-            g[date].push(scan)
-            return g
-          }, {})
-          setGroupedScans(groups)
-        }
+        if (foodData) setFoodScans(foodData)
 
         // Fetch latest body scan
         const { data: bodyData, error: bodyError } = await supabase
@@ -213,8 +232,8 @@ export function Dashboard() {
         <StatCard
           icon={ScanLine}
           label='Food Scans'
-          value={foodScans.length.toString()}
-          subtitle='total scans'
+          value={weekCount.toString()}
+          subtitle='this week'
         />
         <StatCard
           icon={Activity}
@@ -248,11 +267,11 @@ export function Dashboard() {
                   </p>
                   <Badge variant='secondary' className='text-xs'>
                     <TrendingUp className='mr-1 h-3 w-3' />
-                    {foodScans.length} scans
+                    {todayScans.length} scans
                   </Badge>
                 </div>
                 <div className='space-y-2'>
-                  {foodScans.slice(0, 5).map((scan) => (
+                  {todayScans.slice(0, 5).map((scan) => (
                     <div
                       key={scan.id}
                       className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'
@@ -296,8 +315,8 @@ export function Dashboard() {
         <TabsContent value='history'>
           <Card className='border-border/50'>
             <CardContent className='p-2'>
-              {foodScans.length > 0 ? (
-                foodScans.map((scan) => (
+              {todayScans.length > 0 ? (
+                todayScans.map((scan) => (
                   <div
                     key={scan.id}
                     className='flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-muted/50'
@@ -320,7 +339,7 @@ export function Dashboard() {
                 ))
               ) : (
                 <div className='p-4 text-center'>
-                  <p className='text-sm text-muted-foreground'>No scans yet. Start by scanning a meal!</p>
+                  <p className='text-sm text-muted-foreground'>No meals scanned today</p>
                 </div>
               )}
             </CardContent>
@@ -361,16 +380,21 @@ export function Dashboard() {
 
             <Card className='border-border/50'>
               <CardContent className='p-5'>
-                <p className='mb-4 text-sm font-semibold text-foreground'>
+                <p className='mb-1 text-sm font-semibold text-foreground'>
                   Weekly Summary
                 </p>
+                {weekLabel && (
+                  <p className='mb-4 text-xs text-muted-foreground'>
+                    {weekLabel}
+                  </p>
+                )}
                 <div className='flex flex-col gap-3'>
                   <div className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5'>
                     <span className='text-xs text-muted-foreground'>
                       Total Scans
                     </span>
                     <span className='text-sm font-semibold text-foreground'>
-                      {foodScans.length}
+                      {weekCount}
                     </span>
                   </div>
                   <div className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5'>
@@ -378,14 +402,9 @@ export function Dashboard() {
                       Avg. Daily Calories
                     </span>
                     <span className='text-sm font-semibold text-foreground'>
-                      {foodScans.length > 0
+                      {weekScans.length > 0
                         ? Math.round(
-                            foodScans.reduce((sum, s) => sum + ((s?.total_calories ?? s?.calories) || 0), 0) /
-                              Math.ceil(
-                                (new Date().getTime() -
-                                  new Date(foodScans[foodScans.length - 1]?.scanned_at ?? '').getTime()) /
-                                  (1000 * 60 * 60 * 24) || 1
-                              )
+                            weekScans.reduce((sum, s) => sum + ((s?.total_calories ?? s?.calories) || 0), 0) / 7
                           )
                         : 0}
                     </span>
