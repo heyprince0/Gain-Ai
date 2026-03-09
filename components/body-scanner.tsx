@@ -45,8 +45,6 @@ function getBodyTypeColor(type?: string) {
       return { bg: '#22c55e', text: '#000' }
     case 'Ectomorph':
       return { bg: '#3b82f6', text: '#fff' }
-    case 'Skinny':
-      return { bg: '#60a5fa', text: '#000' }
     case 'Endomorph':
       return { bg: '#f97316', text: '#000' }
     case 'Overweight':
@@ -54,6 +52,8 @@ function getBodyTypeColor(type?: string) {
     case 'Fat':
       return { bg: '#ef4444', text: '#fff' }
     case 'Obese':
+    case 'Skinny':
+      // skinny treated same warning color as obese
       return { bg: '#dc2626', text: '#fff' }
     default:
       return { bg: '#6b7280', text: '#fff' }
@@ -116,7 +116,7 @@ export function BodyScanner() {
 {
   "body_fat": <number>,
   "bmi": <number>,
-  "body_type": "<Ectomorph, Mesomorph, Endomorph, Skinny, Athletic, Overweight, Fat, Obese>",
+  "body_type": "<one of: Ectomorph, Mesomorph, Athletic, Endomorph, Overweight, Fat, Obese, Skinny>",
   "body_type_description": "<one line description>",
   "muscle": <number between 0-100>,
   "fat": <number between 0-100>,
