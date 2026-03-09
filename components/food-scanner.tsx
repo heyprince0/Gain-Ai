@@ -92,8 +92,8 @@ export function FoodScanner() {
   "total_carbs": <number>,
   "total_fats": <number>,
   "total_fiber": <number>,
-  "health_score": <number between 0-100>,
-  "health_rating": "<one of: Excellent, Good, Average, Poor, Very Poor>",
+  "health_score": <whole number between 1 and 10, NO decimals>,
+  "health_rating": "<Excellent, Good, Average, Poor, Very Poor>",
   "ai_note": "<2-3 sentences about this food from a fitness/gym perspective — is it good for muscle building, fat loss, etc. Be specific and helpful>",
   "items": [
     {
@@ -107,12 +107,12 @@ export function FoodScanner() {
   ]
 }
 
-Health score rules for gym/fitness people:
-- High protein, low fat, complex carbs = 80-100 (Excellent)
-- Good protein, moderate carbs = 60-79 (Good)
-- Average nutrition, processed food = 40-59 (Average)
-- High fat, low protein, junk food = 20-39 (Poor)
-- Very unhealthy, no nutritional value = 0-19 (Very Poor)
+Health score rules for gym/fitness people (1–10 whole numbers):
+- 9-10: Excellent (high protein, complex carbs, low fat)
+- 7-8: Good
+- 5-6: Average
+- 3-4: Poor (junk food, high fat, low protein)
+- 1-2: Very Poor
 `, 
                   },
                 ],
@@ -229,9 +229,9 @@ Health score rules for gym/fitness people:
         carbs: Number(analysis.total_carbs) || 0,
         fats: Number(analysis.total_fats) || 0,
         fiber: Number(analysis.total_fiber) || 0,
-        // store as decimal string/number to avoid integer truncation
+        // round to whole number before saving (ensure column can hold integers)
         health_score: analysis.health_score !== undefined && analysis.health_score !== null
-          ? parseFloat(analysis.health_score.toString())
+          ? Math.round(Number(analysis.health_score))
           : null,
         health_rating: analysis.health_rating || null,
       }
@@ -433,7 +433,7 @@ Health score rules for gym/fitness people:
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '600' }}>Health Score</span>
                       <span style={{ color: scoreColor }}>
-                        {score.toFixed(1)}/10 — {analysis.health_rating}
+                        {Math.round(score)}/10 — {analysis.health_rating}
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '12px', background: '#e5e7eb', borderRadius: '10px' }}>

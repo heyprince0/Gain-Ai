@@ -94,8 +94,10 @@ export function Dashboard() {
 
   const normalizeScore = (score: number) => {
     if (!score) return 0
-    // If old score stored as 0-100, convert to 0-10
-    return score > 10 ? Math.round(score / 10) : score
+    // convert old 0-100 scores, clamp, then round to whole number
+    let s = score > 10 ? score / 10 : score
+    s = Math.min(Math.max(s, 0), 10)
+    return Math.round(s)
   }
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [loading, setLoading] = useState(true)
@@ -373,7 +375,7 @@ export function Dashboard() {
                             color: color,
                             marginTop: '2px'
                           }}>
-                            {score.toFixed(1)}/10 · {scan.health_rating ?? 'Average'}
+                            {Math.round(score)}/10 · {scan.health_rating ?? 'Average'}
                           </div>
                         )}
                       </div>
