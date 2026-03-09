@@ -274,9 +274,6 @@ export function Dashboard() {
           <TabsTrigger value='overview' className='rounded-lg text-xs'>
             Overview
           </TabsTrigger>
-          <TabsTrigger value='history' className='rounded-lg text-xs'>
-            Scan History
-          </TabsTrigger>
           <TabsTrigger value='progress' className='rounded-lg text-xs'>
             Progress
           </TabsTrigger>
@@ -284,36 +281,6 @@ export function Dashboard() {
 
         <TabsContent value='overview'>
           <div className='grid gap-4 lg:grid-cols-2'>
-            {/* Latest Scans Chart */}
-            <Card className='border-border/50'>
-              <CardContent className='p-5'>
-                <div className='mb-4 flex items-center justify-between'>
-                  <p className='text-sm font-semibold text-foreground'>
-                    Recent Scans
-                  </p>
-                  <Badge variant='secondary' className='text-xs'>
-                    <TrendingUp className='mr-1 h-3 w-3' />
-                    {todayScans.length} scans
-                  </Badge>
-                </div>
-                <div className='space-y-2'>
-                  {todayScans.slice(0, 5).map((scan) => (
-                    <div
-                      key={scan.id}
-                      className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'
-                    >
-                      <span className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? formatIST(scan.scanned_at, true) : 'N/A'}
-                      </span>
-                      <span className='text-sm font-semibold'>
-                        {(scan?.calories ?? 0)} kcal
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Today's Macros */}
             <Card className='border-border/50'>
               <CardContent className='p-5'>
@@ -335,61 +302,62 @@ export function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Scan History moved from history tab */}
+            <Card className='border-border/50'>
+              <CardContent className='p-2'>
+                {todayScans.length > 0 ? (
+                  todayScans.map((scan) => {
+                    const raw = scan.health_score ?? 0
+                    const score = normalizeScore(raw)
+                    const color = getScoreColor(score)
+                    return (
+                      <div
+                        key={scan.id ?? scan.scanned_at}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          borderLeft: `4px solid ${color}`,
+                          background: `${color}12`,
+                          marginBottom: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: '600' }}>{scan.food_name || 'Food Scan'}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.6 }}>
+                            {scan?.scanned_at ? formatIST(scan.scanned_at, true) : 'N/A'}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: '700' }}>{scan.calories ?? 0} kcal</div>
+                          {scan.health_score !== undefined && (
+                            <div style={{
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: color,
+                              marginTop: '2px'
+                            }}>
+                              {Math.round(score)}/10 · {scan.health_rating ?? 'Average'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className='p-4 text-center'>
+                    <p className='text-sm text-muted-foreground'>No meals scanned today</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value='history'>
-          <Card className='border-border/50'>
-            <CardContent className='p-2'>
-              {todayScans.length > 0 ? (
-                todayScans.map((scan) => {
-                  const raw = scan.health_score ?? 0
-                  const score = normalizeScore(raw)
-                  const color = getScoreColor(score)
-                  return (
-                    <div
-                      key={scan.id ?? scan.scanned_at}
-                      style={{
-                        padding: '12px 16px',
-                        borderRadius: '10px',
-                        borderLeft: `4px solid ${color}`,
-                        background: `${color}12`,
-                        marginBottom: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: '600' }}>{scan.food_name || 'Food Scan'}</div>
-                        <div style={{ fontSize: '12px', opacity: 0.6 }}>
-                          {scan?.scanned_at ? formatIST(scan.scanned_at, true) : 'N/A'}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: '700' }}>{scan.calories ?? 0} kcal</div>
-                        {scan.health_score !== undefined && (
-                          <div style={{
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            color: color,
-                            marginTop: '2px'
-                          }}>
-                            {Math.round(score)}/10 · {scan.health_rating ?? 'Average'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })
-              ) : (
-                <div className='p-4 text-center'>
-                  <p className='text-sm text-muted-foreground'>No meals scanned today</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value='progress'>
           <div className='grid gap-4 lg:grid-cols-2'>
