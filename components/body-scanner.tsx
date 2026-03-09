@@ -125,8 +125,11 @@ export function BodyScanner() {
   "areas_to_improve": ["<area 1>", "<area 2>", "<area 3>"],
   "notes": "<brief personalized advice>"
 }
+
+Note: if the user appears skinny, do NOT label them as Ectomorph—use "Skinny" instead.
 `
                   },
+
                 ],
               },
             ],
