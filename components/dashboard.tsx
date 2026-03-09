@@ -51,21 +51,25 @@ interface BodyScan {
   body_fat?: number
 }
 
-const formatTime = (dateStr: string) =>
-  new Date(dateStr).toLocaleTimeString('en-IN', {
+const formatIST = (dateString: string, timeOnly = false) => {
+  const date = new Date(dateString)
+  if (timeOnly) {
+    return date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Kolkata'
+    hour12: true
   })
-
-const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Kolkata'
-  })
+} 
 
 export function Dashboard() {
   const { user } = useAuth()
@@ -286,7 +290,7 @@ export function Dashboard() {
                       className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'
                     >
                       <span className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? formatTime(scan.scanned_at) : 'N/A'}
+                        {scan?.scanned_at ? formatIST(scan.scanned_at, true) : 'N/A'}
                       </span>
                       <span className='text-sm font-semibold'>
                         {(scan?.calories ?? 0)} kcal
@@ -338,7 +342,7 @@ export function Dashboard() {
                         {scan.food_name || 'Food Scan'}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? formatTime(scan.scanned_at) : 'N/A'}
+                        {scan?.scanned_at ? formatIST(scan.scanned_at) : 'N/A'}
                       </p>
                     </div>
                     <span className='text-sm font-semibold text-foreground'>
@@ -377,7 +381,7 @@ export function Dashboard() {
                         Last Updated
                       </span>
                       <span className='text-sm font-semibold text-foreground'>
-                        {bodyScan?.scanned_at ? formatDate(bodyScan.scanned_at) : 'N/A'}
+                        {bodyScan?.scanned_at ? formatIST(bodyScan.scanned_at) : 'N/A'}
                       </span>
                     </div>
                     {bodyScan?.body_type && (
