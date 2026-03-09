@@ -29,6 +29,9 @@ interface MealAnalysis {
   total_carbs: number
   total_fats: number
   total_fiber?: number
+  health_score?: number
+  health_rating?: string
+  ai_note?: string
   items: FoodResult[]
 }
 
@@ -83,12 +86,15 @@ export function FoodScanner() {
                   {
                     text: `Analyze this food image and return ONLY this exact JSON with no markdown:
 {
-  "meal_name": "<single descriptive name for the whole meal e.g. 'Indian Thali', 'Stir-fried Noodles'>",
-  "total_calories": <total calories of entire meal>,
-  "total_protein": <total protein grams>,
-  "total_carbs": <total carbs grams>,
-  "total_fats": <total fat grams>,
-  "total_fiber": <total fiber grams>,
+  "meal_name": "<single descriptive meal name>",
+  "total_calories": <number>,
+  "total_protein": <number>,
+  "total_carbs": <number>,
+  "total_fats": <number>,
+  "total_fiber": <number>,
+  "health_score": <number between 0-100>,
+  "health_rating": "<one of: Excellent, Good, Average, Poor, Very Poor>",
+  "ai_note": "<2-3 sentences about this food from a fitness/gym perspective — is it good for muscle building, fat loss, etc. Be specific and helpful>",
   "items": [
     {
       "food_name": "<item name>",
@@ -99,7 +105,15 @@ export function FoodScanner() {
       "fats": <number>
     }
   ]
-}`,
+}
+
+Health score rules for gym/fitness people:
+- High protein, low fat, complex carbs = 80-100 (Excellent)
+- Good protein, moderate carbs = 60-79 (Good)
+- Average nutrition, processed food = 40-59 (Average)
+- High fat, low protein, junk food = 20-39 (Poor)
+- Very unhealthy, no nutritional value = 0-19 (Very Poor)
+`, 
                   },
                 ],
               },
@@ -141,6 +155,9 @@ export function FoodScanner() {
           total_carbs: items.reduce((acc, r) => acc + (r.carbs || 0), 0),
           total_fats: items.reduce((acc, r) => acc + (r.fats || 0), 0),
           total_fiber: items.reduce((acc, r) => acc + (r.fiber || 0), 0),
+          health_score: 0,
+          health_rating: '',
+          ai_note: '',
           items,
         }
       } else {
@@ -151,6 +168,9 @@ export function FoodScanner() {
           total_carbs: parsed.total_carbs || 0,
           total_fats: parsed.total_fats || 0,
           total_fiber: parsed.total_fiber || 0,
+          health_score: parsed.health_score ?? 0,
+          health_rating: parsed.health_rating || '',
+          ai_note: parsed.ai_note || '',
           items: Array.isArray(parsed.items)
             ? parsed.items.map((p: any) => ({
                 name: p.food_name || p.name,
@@ -391,6 +411,58 @@ export function FoodScanner() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Health Score Section */}
+              <div style={{
+                background: '#1a1a2e',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                marginTop: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '600' }}>Health Score</span>
+                  <span style={{
+                    fontWeight: '700',
+                    color: (analysis?.health_score ?? 0) >= 80 ? '#00ff88' :
+                           (analysis?.health_score ?? 0) >= 60 ? '#86efac' :
+                           (analysis?.health_score ?? 0) >= 40 ? '#facc15' :
+                           (analysis?.health_score ?? 0) >= 20 ? '#fb923c' : '#ef4444'
+                  }}>
+                    {analysis?.health_score ?? 0}/100 — {analysis?.health_rating}
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div style={{
+                  width: '100%', height: '12px',
+                  background: '#2a2a3e', borderRadius: '10px', overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${analysis?.health_score ?? 0}%`,
+                    height: '100%',
+                    borderRadius: '10px',
+                    background: (analysis?.health_score ?? 0) >= 80 ? '#00ff88' :
+                               (analysis?.health_score ?? 0) >= 60 ? '#86efac' :
+                               (analysis?.health_score ?? 0) >= 40 ? '#facc15' :
+                               (analysis?.health_score ?? 0) >= 20 ? '#fb923c' : '#ef4444',
+                    transition: 'width 1s ease'
+                  }} />
+                </div>
+
+                {/* AI Note */}
+                <div style={{
+                  marginTop: '12px',
+                  padding: '10px 14px',
+                  background: 'rgba(0,255,136,0.06)',
+                  borderLeft: '3px solid #00ff88',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  color: '#9ca3af'
+                }}>
+                  🤖 {analysis?.ai_note}
+                </div>
+              </div>
 
               {/* Individual Items */}
               {analysis?.items.map((food) => (
