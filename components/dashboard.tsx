@@ -46,6 +46,22 @@ interface BodyScan {
   body_fat?: number
 }
 
+const formatTime = (dateStr: string) =>
+  new Date(dateStr).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  })
+
+const formatDate = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  })
+
 export function Dashboard() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -265,7 +281,7 @@ export function Dashboard() {
                       className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'
                     >
                       <span className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleDateString() : 'N/A'}
+                        {scan?.scanned_at ? formatTime(scan.scanned_at) : 'N/A'}
                       </span>
                       <span className='text-sm font-semibold'>
                         {(scan?.calories ?? 0)} kcal
@@ -317,7 +333,7 @@ export function Dashboard() {
                         {scan.food_name || 'Food Scan'}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {scan?.scanned_at ? new Date(scan.scanned_at).toLocaleString() : 'N/A'}
+                        {scan?.scanned_at ? formatTime(scan.scanned_at) : 'N/A'}
                       </p>
                     </div>
                     <span className='text-sm font-semibold text-foreground'>
@@ -356,7 +372,7 @@ export function Dashboard() {
                         Last Updated
                       </span>
                       <span className='text-sm font-semibold text-foreground'>
-                        {bodyScan?.scanned_at ? new Date(bodyScan.scanned_at).toLocaleDateString() : 'N/A'}
+                        {bodyScan?.scanned_at ? formatDate(bodyScan.scanned_at) : 'N/A'}
                       </span>
                     </div>
                     {bodyScan?.body_type && (
