@@ -373,7 +373,7 @@ export function Dashboard() {
                             color: color,
                             marginTop: '2px'
                           }}>
-                            {score}/10 · {scan.health_rating ?? 'Average'}
+                            {score.toFixed(1)}/10 · {scan.health_rating ?? 'Average'}
                           </div>
                         )}
                       </div>

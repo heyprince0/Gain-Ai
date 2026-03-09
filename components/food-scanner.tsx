@@ -229,7 +229,10 @@ Health score rules for gym/fitness people:
         carbs: Number(analysis.total_carbs) || 0,
         fats: Number(analysis.total_fats) || 0,
         fiber: Number(analysis.total_fiber) || 0,
-        health_score: analysis.health_score ?? null,
+        // store as decimal string/number to avoid integer truncation
+        health_score: analysis.health_score !== undefined && analysis.health_score !== null
+          ? parseFloat(analysis.health_score.toString())
+          : null,
         health_rating: analysis.health_rating || null,
       }
 
@@ -430,7 +433,7 @@ Health score rules for gym/fitness people:
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '600' }}>Health Score</span>
                       <span style={{ color: scoreColor }}>
-                        {score}/10 — {analysis.health_rating}
+                        {score.toFixed(1)}/10 — {analysis.health_rating}
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '12px', background: '#e5e7eb', borderRadius: '10px' }}>
