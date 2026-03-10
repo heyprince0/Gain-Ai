@@ -113,17 +113,21 @@ export function Dashboard() {
           .select('id, name, age, weight, height, goal, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at')
           .eq('id', user.id)
           .single()
-        
+
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Profile error:', profileError)
         }
         if (profileData) setProfile(profileData)
-        // if profileData doesn't contain a name we may still fallback later
 
-        // calculate start of today and week
-        const todayStart = new Date()
-        todayStart.setHours(0, 0, 0, 0)
-        const todayISO = todayStart.toISOString()
+        // IST daily reset: get midnight IST in UTC format
+        const getToday = () => {
+          const now = new Date()
+          const istOffset = 5.5 * 60 * 60 * 1000
+          const istNow = new Date(now.getTime() + istOffset)
+          istNow.setHours(0, 0, 0, 0)
+          const utcMidnight = new Date(istNow.getTime() - istOffset)
+          return utcMidnight.toISOString()
+        }
 
         const getWeekStart = () => {
           const now = new Date()
@@ -135,12 +139,12 @@ export function Dashboard() {
         }
         const weekStart = getWeekStart()
 
-        // Fetch today's scans only
+        // Fetch today's scans using IST midnight
         const { data: todayData, error: todayError } = await supabase
           .from('food_scans')
           .select('*')
           .eq('user_id', user.id)
-          .gte('scanned_at', todayISO)
+          .gte('scanned_at', getToday())
           .order('scanned_at', { ascending: false })
 
         if (todayError) console.error('Today scans error:', todayError)
@@ -303,7 +307,7 @@ export function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Scan History moved from history tab */}
+            {/* Today's Meals - Overview */}
             <Card className='border-border/50'>
               <CardContent className='p-2'>
                 {todayScans.length > 0 ? (
@@ -320,29 +324,13 @@ export function Dashboard() {
                           borderLeft: `4px solid ${color}`,
                           background: `${color}12`,
                           marginBottom: '8px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
                         }}
                       >
-                        <div>
-                          <div style={{ fontWeight: '600' }}>{scan.food_name || 'Food Scan'}</div>
-                          <div style={{ fontSize: '12px', opacity: 0.6 }}>
-                            {scan?.scanned_at ? formatIST(scan.scanned_at, true) : 'N/A'}
-                          </div>
+                        <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                          {scan.food_name || 'Food Scan'}
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: '700' }}>{scan.calories ?? 0} kcal</div>
-                          {scan.health_score !== undefined && (
-                            <div style={{
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              color: color,
-                              marginTop: '2px'
-                            }}>
-                              {Math.round(score)}/10 · {scan.health_rating ?? 'Average'}
-                            </div>
-                          )}
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: color }}>
+                          {scan.calories ?? 0} kcal · {Math.round(score)}/10 · {scan.health_rating ?? 'Average'}
                         </div>
                       </div>
                     )
@@ -445,6 +433,57 @@ export function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Meal History with Full Timestamps */}
+          <Card className='border-border/50 mt-4'>
+            <CardContent className='p-2'>
+              <p className='mb-3 px-3 pt-3 text-sm font-semibold text-foreground'>
+                Meal History
+              </p>
+              {weekScans.length > 0 ? (
+                weekScans.map((scan) => {
+                  const raw = scan.health_score ?? 0
+                  const score = normalizeScore(raw)
+                  const color = getScoreColor(score)
+                  return (
+                    <div
+                      key={scan.id ?? scan.scanned_at}
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        borderLeft: `4px solid ${color}`,
+                        background: `${color}12`,
+                        marginBottom: '8px',
+                        marginLeft: '8px',
+                        marginRight: '8px'
+                      }}
+                    >
+                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                        {scan.food_name || 'Food Scan'}
+                      </div>
+                      <div style={{ fontWeight: '700', marginBottom: '4px' }}>
+                        {scan.calories ?? 0} kcal
+                      </div>
+                      <div style={{ fontSize: '12px', opacity: 0.6 }}>
+                        {new Date(scan.scanned_at).toLocaleString('en-IN', {
+                          timeZone: 'Asia/Kolkata',
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className='p-4 text-center'>
+                  <p className='text-sm text-muted-foreground'>No meal history</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
