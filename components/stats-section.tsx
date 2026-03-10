@@ -1,8 +1,8 @@
 export function StatsSection() {
   const stats = [
-    { value: "50K+", label: "Foods Scanned" },
+    { value: "10K+", label: "Foods Scanned" },
     { value: "99%", label: "Accuracy Rate" },
-    { value: "25K+", label: "Active Users" },
+    { value: "500+", label: "Active Users" },
     { value: "4.9", label: "App Rating" },
   ]
 
