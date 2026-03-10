@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -52,10 +53,14 @@ export function Navbar() {
   return (
     <header className="top-navbar sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">G</span>
-          </div>
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="GainAi Logo"
+            width={40}
+            height={40}
+            className="h-10 w-10"
+          />
           <span className="text-lg font-bold tracking-tight text-foreground">
             Gain<span className="text-primary">Ai</span>
           </span>

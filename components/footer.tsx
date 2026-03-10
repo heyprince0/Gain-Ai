@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 
 export function Footer() {
   return (
@@ -6,9 +7,13 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-12 lg:px-6">
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-              <span className="text-xs font-bold text-primary-foreground">G</span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="GainAi Logo"
+              width={28}
+              height={28}
+              className="h-7 w-7"
+            />
             <span className="text-sm font-bold tracking-tight text-foreground">
               Gain<span className="text-primary">Ai</span>
             </span>
