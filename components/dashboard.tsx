@@ -121,12 +121,23 @@ export function Dashboard() {
 
         // IST daily reset: get midnight IST in UTC format
         const getTodayIST = () => {
+          // Get current time in IST
           const now = new Date()
-          const istOffset = 5.5 * 60 * 60 * 1000
-          const istNow = new Date(now.getTime() + istOffset)
-          istNow.setHours(0, 0, 0, 0)
-          const utcMidnight = new Date(istNow.getTime() - istOffset)
-          return utcMidnight.toISOString()
+          
+          // Format today's date in IST timezone
+          const istDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).format(now)
+          
+          // istDate is like "2026-03-12"
+          // Convert IST midnight to UTC for Supabase query
+          // IST midnight = UTC 18:30 previous day
+          const istMidnightUTC = new Date(`${istDate}T00:00:00+05:30`)
+          
+          return istMidnightUTC.toISOString()
         }
 
         const getWeekStart = () => {
