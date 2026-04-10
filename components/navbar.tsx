@@ -28,12 +28,14 @@ export function Navbar() {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/food-scanner", label: "Food Scanner" },
     { href: "/body-scanner", label: "Body Scanner" },
+    { href: "/download", label: "Download App" },
   ]
 
   const publicLinks = [
     { href: "/", label: "Home" },
     { href: "/food-scanner", label: "Food Scanner" },
     { href: "/body-scanner", label: "Body Scanner" },
+    { href: "/download", label: "Download App" },
   ]
 
   const linksToShow = user ? authenticatedLinks : publicLinks
