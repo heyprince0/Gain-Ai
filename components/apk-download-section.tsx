@@ -1,25 +1,28 @@
 "use client"
 
-import { Download, Smartphone, Star, Zap } from "lucide-react"
+import { Download, Smartphone, Star, Zap, MonitorSmartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { usePwaInstall } from "@/hooks/use-pwa-install"
 
 export function ApkDownloadSection() {
+  const { isInstallable, isInstalled, installApp } = usePwaInstall()
+
   return (
     <section className="border-t border-border/50 bg-gradient-to-b from-muted/20 to-background">
       <div className="mx-auto max-w-6xl px-4 py-20 lg:px-6">
         <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left flex-1">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-              <Smartphone className="h-3.5 w-3.5" />
-              Android App Available
+              <MonitorSmartphone className="h-3.5 w-3.5" />
+              Install on Any Device
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Take GainAi{" "}
               <span className="text-primary">everywhere</span>
             </h2>
             <p className="mt-4 max-w-md text-pretty text-base leading-relaxed text-muted-foreground">
-              Download the native Android app for a faster, smoother experience.
-              Scan food, analyze your body, and chat with your AI coach — all from your phone.
+              Install GainAi directly to your home screen — no app store needed.
+              Scan food, analyze your body, and chat with your AI coach from any device.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -33,26 +36,41 @@ export function ApkDownloadSection() {
               </div>
               <div className="flex items-center gap-1.5">
                 <Smartphone className="h-4 w-4 text-primary" />
-                <span>Native Android experience</span>
+                <span>Native app experience</span>
               </div>
             </div>
 
-            <a
-              href="/GainAi.apk"
-              download="GainAi.apk"
-              className="mt-8"
-            >
-              <Button
-                size="lg"
-                className="rounded-xl px-8 text-base font-semibold shadow-lg shadow-primary/25 gap-2"
-              >
-                <Download className="h-5 w-5" />
-                Download APK
-              </Button>
-            </a>
-            <p className="mt-3 text-xs text-muted-foreground">
-              For Android devices · Enable "Install from unknown sources" in settings
-            </p>
+            <div className="mt-8 flex flex-col items-start gap-3">
+              {isInstalled ? (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3 text-sm font-medium text-primary">
+                  <Star className="h-4 w-4 fill-primary" />
+                  GainAi is already installed!
+                </div>
+              ) : isInstallable ? (
+                <Button
+                  size="lg"
+                  className="rounded-xl px-8 text-base font-semibold shadow-lg shadow-primary/25 gap-2"
+                  onClick={installApp}
+                >
+                  <Download className="h-5 w-5" />
+                  Install App
+                </Button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="lg"
+                    className="rounded-xl px-8 text-base font-semibold shadow-lg shadow-primary/25 gap-2"
+                    disabled
+                  >
+                    <Download className="h-5 w-5" />
+                    Install App
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    To install, use your browser menu → "Add to Home Screen"
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col items-center gap-4 flex-shrink-0">
@@ -75,8 +93,8 @@ export function ApkDownloadSection() {
               <div className="absolute bottom-3 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10" />
             </div>
             <div className="rounded-xl border border-border/50 bg-card px-4 py-2.5 text-center">
-              <p className="text-xs font-semibold text-foreground">Free Download</p>
-              <p className="text-[10px] text-muted-foreground">No Play Store needed</p>
+              <p className="text-xs font-semibold text-foreground">Free Install</p>
+              <p className="text-[10px] text-muted-foreground">No App Store needed</p>
             </div>
           </div>
         </div>
