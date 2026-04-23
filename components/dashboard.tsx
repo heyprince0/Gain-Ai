@@ -236,6 +236,47 @@ export function Dashboard() {
     .map((n) => n[0])
     .join('') || ''
 
+  const calculateStreak = (scans: FoodScan[]) => {
+    if (!scans || scans.length === 0) return 0
+    const istDateKey = (iso: string) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(iso))
+
+    const days = new Set(scans.map((s) => istDateKey(s.scanned_at)))
+    const todayKey = istDateKey(new Date().toISOString())
+
+    let cursor = new Date(`${todayKey}T00:00:00+05:30`)
+    if (!days.has(todayKey)) {
+      cursor.setDate(cursor.getDate() - 1)
+    }
+
+    let streak = 0
+    while (true) {
+      const key = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(cursor)
+      if (!days.has(key)) break
+      streak += 1
+      cursor.setDate(cursor.getDate() - 1)
+    }
+    return streak
+  }
+
+  const streak = calculateStreak(foodScans)
+  const scannedToday = todayScans.length > 0
+  const streakSubtitle = streak === 0
+    ? 'Scan a meal to start'
+    : scannedToday
+      ? 'Keep it up!'
+      : 'Scan today to keep it alive'
+
   return (
     <div className='mx-auto max-w-4xl px-4 py-10 lg:px-6'>
       {/* Profile Header */}
@@ -254,6 +295,34 @@ export function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Streak Banner */}
+      <Card className='mb-6 overflow-hidden border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent'>
+        <CardContent className='flex items-center justify-between gap-4 p-5'>
+          <div className='flex items-center gap-4'>
+            <div className='flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20 text-primary'>
+              <Flame className='h-7 w-7' />
+            </div>
+            <div>
+              <p className='text-[10px] font-medium uppercase tracking-wider text-muted-foreground'>
+                Scan Streak
+              </p>
+              <p className='text-3xl font-bold text-foreground'>
+                {streak} <span className='text-base font-medium text-muted-foreground'>{streak === 1 ? 'day' : 'days'}</span>
+              </p>
+              <p className='mt-0.5 text-xs text-muted-foreground'>{streakSubtitle}</p>
+            </div>
+          </div>
+          {streak > 0 && (
+            <Badge
+              className='rounded-full border-0 bg-primary/20 px-3 py-1 text-primary'
+              variant='secondary'
+            >
+              {scannedToday ? 'Active today' : 'At risk'}
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Stats */}
       <div className='mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4'>
