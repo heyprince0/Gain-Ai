@@ -7,7 +7,7 @@ import { FoodScanner } from "@/components/food-scanner"
 export default function FoodScannerPage() {
   const { user, loading } = useAuth()
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
