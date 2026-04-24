@@ -50,12 +50,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === '/'
   const redirectingHome = !!user && hasProfile && isHomePage
 
-  if (loading || (user && profileLoading) || redirectingHome) {
+  // Show loading screen while auth state is being determined
+  if (loading || (user && profileLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-3" />
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )

@@ -291,18 +291,17 @@ Health score rules for gym/fitness people (1–10 whole numbers):
                     <Upload className="mr-2 h-3.5 w-3.5" />
                     Upload Image
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg"
-                    onClick={() => {
-                      const input = document.createElement('input')
-                      input.type = 'file'
-                      input.accept = 'image/*'
-                      input.capture = 'environment'
-                      input.onchange = (e) => {
-                        const target = e.target as HTMLInputElement
-                        const file = target.files?.[0]
+                  <label className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent cursor-pointer">
+                    <Camera className="h-3.5 w-3.5" />
+                    Take Photo
+                    <input
+                      key={Date.now()}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
                         if (!file) return
                         setError(null)
                         setAnalysis(null)
@@ -311,13 +310,9 @@ Health score rules for gym/fitness people (1–10 whole numbers):
                           .then((dataUrl) => setImage(dataUrl))
                           .catch((err) => setError(err instanceof Error ? err.message : "Could not load the image"))
                           .finally(() => setPreparing(false))
-                      }
-                      input.click()
-                    }}
-                  >
-                    <Camera className="mr-2 h-3.5 w-3.5" />
-                    Take Photo
-                  </Button>
+                      }}
+                    />
+                  </label>
                 </div>
                 <input
                   ref={fileInputRef}
