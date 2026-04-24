@@ -248,8 +248,8 @@ Note: if the user appears skinny, do NOT label them as Ectomorph—use "Skinny" 
                     <Upload className="mr-2 h-3.5 w-3.5" />
                     Upload Image
                   </Button>
-                  <label className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent cursor-pointer">
-                    <Camera className="h-3.5 w-3.5" />
+                  <label className="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 h-8 text-sm font-medium hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+                    <Camera className="mr-2 h-3.5 w-3.5" />
                     Take Photo
                     <input
                       key={cameraInputKey}
@@ -498,4 +498,5 @@ Note: if the user appears skinny, do NOT label them as Ectomorph—use "Skinny" 
     </div>
   )
 }
+
 
