@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Upload, Camera, ScanLine, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -36,12 +36,7 @@ interface MealAnalysis {
 
 export function FoodScanner() {
   const { user } = useAuth()
-  const [image, setImage] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('foodScannerImage') || null
-    }
-    return null
-  })
+  const [image, setImage] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -50,15 +45,25 @@ export function FoodScanner() {
   const [preparing, setPreparing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const setImageWithStorage = useCallback((dataUrl: string | null) => {
-    if (typeof window !== 'undefined') {
-      if (dataUrl) {
-        sessionStorage.setItem('foodScannerImage', dataUrl)
-      } else {
-        sessionStorage.removeItem('foodScannerImage')
-      }
+  // On mount, restore image from sessionStorage (survives camera focus loss)
+  // but clear it so fresh visits start empty
+  useEffect(() => {
+    const stored = sessionStorage.getItem('foodScannerImage')
+    if (stored) {
+      setImage(stored)
     }
-    setImageWithStorage(dataUrl)
+    return () => {
+      // Don't clear on unmount — we want it to survive camera refocus
+    }
+  }, [])
+
+  const setImageWithStorage = useCallback((dataUrl: string | null) => {
+    if (dataUrl) {
+      sessionStorage.setItem('foodScannerImage', dataUrl)
+    } else {
+      sessionStorage.removeItem('foodScannerImage')
+    }
+    setImage(dataUrl)
   }, [])
 
   const handleUpload = useCallback(
@@ -590,3 +595,4 @@ function MacroBar({
     </div>
   )
 }
+
