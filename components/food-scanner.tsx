@@ -44,7 +44,6 @@ export function FoodScanner() {
   const [saveMessage, setSaveMessage] = useState('')
   const [preparing, setPreparing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,7 +212,6 @@ Health score rules for gym/fitness people (1–10 whole numbers):
     setSaved(false)
     setSaveMessage('')
     if (fileInputRef.current) fileInputRef.current.value = ""
-    if (cameraInputRef.current) cameraInputRef.current.value = ""
   }, [])
 
   const totalCalories = analysis?.total_calories ?? 0
@@ -297,7 +295,25 @@ Health score rules for gym/fitness people (1–10 whole numbers):
                     variant="outline"
                     size="sm"
                     className="rounded-lg"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'
+                      input.accept = 'image/*'
+                      input.capture = 'environment'
+                      input.onchange = (e) => {
+                        const target = e.target as HTMLInputElement
+                        const file = target.files?.[0]
+                        if (!file) return
+                        setError(null)
+                        setAnalysis(null)
+                        setPreparing(true)
+                        processImageFile(file)
+                          .then((dataUrl) => setImage(dataUrl))
+                          .catch((err) => setError(err instanceof Error ? err.message : "Could not load the image"))
+                          .finally(() => setPreparing(false))
+                      }
+                      input.click()
+                    }}
                   >
                     <Camera className="mr-2 h-3.5 w-3.5" />
                     Take Photo
@@ -307,14 +323,6 @@ Health score rules for gym/fitness people (1–10 whole numbers):
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  className="sr-only"
-                  onChange={handleUpload}
-                />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
                   className="sr-only"
                   onChange={handleUpload}
                 />
