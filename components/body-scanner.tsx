@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { processImageFile } from "@/lib/image"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -73,16 +74,18 @@ export function BodyScanner() {
   const badgeColors = getBodyTypeColor(results?.body_type)
 
   const handleUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (ev) => {
-          setImage(ev.target?.result as string)
-          setResults(null)
-          setError(null)
-        }
-        reader.readAsDataURL(file)
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const input = e.target
+      const file = input.files?.[0]
+      input.value = ""
+      if (!file) return
+      setError(null)
+      setResults(null)
+      try {
+        const dataUrl = await processImageFile(file)
+        setImage(dataUrl)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load the image")
       }
     },
     []
