@@ -42,6 +42,7 @@ export function FoodScanner() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
+  const [preparing, setPreparing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -49,15 +50,21 @@ export function FoodScanner() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const input = e.target
       const file = input.files?.[0]
-      input.value = ""
-      if (!file) return
+      if (!file) {
+        input.value = ""
+        return
+      }
       setError(null)
       setAnalysis(null)
+      setPreparing(true)
       try {
         const dataUrl = await processImageFile(file)
         setImage(dataUrl)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load the image")
+      } finally {
+        setPreparing(false)
+        input.value = ""
       }
     },
     []
@@ -266,14 +273,14 @@ Health score rules for gym/fitness people (1–10 whole numbers):
             {!image ? (
               <div className="flex flex-col items-center justify-center gap-4 p-12">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Camera className="h-8 w-8" />
+                  {preparing ? <Loader2 className="h-8 w-8 animate-spin" /> : <Camera className="h-8 w-8" />}
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-semibold text-foreground">
-                    Upload food photo
+                    {preparing ? "Preparing your photo..." : "Upload food photo"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    JPG, PNG up to 10MB
+                    {preparing ? "This takes a couple of seconds for big photos" : "JPG, PNG up to 10MB"}
                   </p>
                 </div>
                 <div className="flex gap-3">

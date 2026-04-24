@@ -3,43 +3,56 @@ export async function processImageFile(
   maxDimension = 1280,
   quality = 0.85
 ): Promise<string> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Selected file is not an image')
+  if (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
+    throw new Error("Selected file is not an image")
   }
 
-  const dataUrl = await readFileAsDataURL(file)
+  let bitmap: ImageBitmap | HTMLImageElement | null = null
+  let objectUrl: string | null = null
 
   try {
-    const img = await loadImage(dataUrl)
-    const { width, height } = scaleDown(img.naturalWidth, img.naturalHeight, maxDimension)
+    if (typeof createImageBitmap === "function") {
+      try {
+        bitmap = await createImageBitmap(file)
+      } catch {
+        bitmap = null
+      }
+    }
 
-    const canvas = document.createElement('canvas')
+    if (!bitmap) {
+      objectUrl = URL.createObjectURL(file)
+      bitmap = await loadImage(objectUrl)
+    }
+
+    const sourceWidth = "naturalWidth" in bitmap ? bitmap.naturalWidth : bitmap.width
+    const sourceHeight = "naturalHeight" in bitmap ? bitmap.naturalHeight : bitmap.height
+    const { width, height } = scaleDown(sourceWidth, sourceHeight, maxDimension)
+
+    const canvas = document.createElement("canvas")
     canvas.width = width
     canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return dataUrl
+    const ctx = canvas.getContext("2d")
+    if (!ctx) throw new Error("Could not prepare image canvas")
 
-    ctx.drawImage(img, 0, 0, width, height)
-    return canvas.toDataURL('image/jpeg', quality)
-  } catch {
+    ctx.drawImage(bitmap as CanvasImageSource, 0, 0, width, height)
+    const dataUrl = canvas.toDataURL("image/jpeg", quality)
+    if (!dataUrl || !dataUrl.startsWith("data:image/")) {
+      throw new Error("Could not encode image")
+    }
     return dataUrl
+  } finally {
+    if (bitmap && "close" in bitmap && typeof (bitmap as ImageBitmap).close === "function") {
+      try { (bitmap as ImageBitmap).close() } catch {}
+    }
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
   }
-}
-
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => resolve(e.target?.result as string)
-    reader.onerror = () => reject(new Error('Could not read the selected file'))
-    reader.readAsDataURL(file)
-  })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Could not decode the selected image'))
+    img.onerror = () => reject(new Error("Could not decode the selected image"))
     img.src = src
   })
 }

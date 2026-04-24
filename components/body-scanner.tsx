@@ -67,6 +67,7 @@ export function BodyScanner() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
+  const [preparing, setPreparing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -77,15 +78,21 @@ export function BodyScanner() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const input = e.target
       const file = input.files?.[0]
-      input.value = ""
-      if (!file) return
+      if (!file) {
+        input.value = ""
+        return
+      }
       setError(null)
       setResults(null)
+      setPreparing(true)
       try {
         const dataUrl = await processImageFile(file)
         setImage(dataUrl)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load the image")
+      } finally {
+        setPreparing(false)
+        input.value = ""
       }
     },
     []
@@ -222,14 +229,14 @@ Note: if the user appears skinny, do NOT label them as Ectomorph—use "Skinny" 
             {!image ? (
               <div className="flex flex-col items-center justify-center gap-4 p-12">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Activity className="h-8 w-8" />
+                  {preparing ? <Loader2 className="h-8 w-8 animate-spin" /> : <Activity className="h-8 w-8" />}
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-semibold text-foreground">
-                    Upload body photo
+                    {preparing ? "Preparing your photo..." : "Upload body photo"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Full-body photo for best results
+                    {preparing ? "This takes a couple of seconds for big photos" : "Full-body photo for best results"}
                   </p>
                 </div>
                 <div className="flex gap-3">
