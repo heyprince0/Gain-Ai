@@ -48,20 +48,25 @@ export function FoodScanner() {
   // On mount, restore image from sessionStorage (survives camera focus loss)
   // but clear it so fresh visits start empty
   useEffect(() => {
-    const stored = sessionStorage.getItem('foodScannerImage')
-    if (stored) {
-      setImage(stored)
-    }
-    return () => {
-      // Don't clear on unmount — we want it to survive camera refocus
+    // Only restore image if we're returning from camera (flag was set)
+    const fromCamera = sessionStorage.getItem('foodScannerFromCamera')
+    if (fromCamera) {
+      const stored = sessionStorage.getItem('foodScannerImage')
+      if (stored) setImage(stored)
+      sessionStorage.removeItem('foodScannerFromCamera')
+    } else {
+      // Fresh visit — clear any old stored image
+      sessionStorage.removeItem('foodScannerImage')
     }
   }, [])
 
   const setImageWithStorage = useCallback((dataUrl: string | null) => {
     if (dataUrl) {
       sessionStorage.setItem('foodScannerImage', dataUrl)
+      sessionStorage.setItem('foodScannerFromCamera', 'true')
     } else {
       sessionStorage.removeItem('foodScannerImage')
+      sessionStorage.removeItem('foodScannerFromCamera')
     }
     setImage(dataUrl)
   }, [])
@@ -595,4 +600,3 @@ function MacroBar({
     </div>
   )
 }
-
