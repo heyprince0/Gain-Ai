@@ -50,8 +50,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === '/'
   const redirectingHome = !!user && hasProfile && isHomePage
 
-  // Show loading screen while auth state is being determined
-  if (loading || (user && profileLoading)) {
+  // Only show loading on initial load when we don't know auth state yet
+  // Never unmount children if user is already known — this causes camera photo loss
+  if (!user && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
