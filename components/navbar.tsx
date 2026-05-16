@@ -54,7 +54,7 @@ export function Navbar() {
 
   return (
     <header className="top-navbar sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src="/logo.png"

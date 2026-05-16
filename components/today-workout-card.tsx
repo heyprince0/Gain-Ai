@@ -119,7 +119,7 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
               user_id: userId,
               plan_id: planId,
               day_name: todayDayWorkout.day_name,
-              day_of_week: todayDayNumber,
+              day_of_week: planDayNumber,
               completed: false,
             })
             .select()
@@ -224,8 +224,8 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
         </Card>
 
         {showExerciseModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end">
-            <div className="w-full bg-background border-t border-border rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center sm:justify-center">
+            <div className="w-full sm:w-full sm:max-w-lg bg-background border-t sm:border border-border rounded-none sm:rounded-2xl p-4 sm:p-6 max-h-screen sm:max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

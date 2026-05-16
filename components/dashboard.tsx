@@ -295,7 +295,7 @@ export function Dashboard() {
       : 'Scan today to keep it alive'
 
   return (
-    <div className='mx-auto max-w-4xl px-4 py-10 lg:px-6'>
+    <div className='mx-auto max-w-2xl w-full px-4 py-10'>
       {/* Profile Header */}
       <div className='mb-8 flex items-center gap-4'>
         <Avatar className='h-14 w-14 border-2 border-primary/20'>
@@ -345,7 +345,7 @@ export function Dashboard() {
       />
 
       {/* Quick Stats */}
-      <div className='mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4'>
+      <div className='mb-6 grid grid-cols-2 md:grid-cols-4 gap-3'>
         <StatCard
           icon={Flame}
           label="Today's Calories"
@@ -549,8 +549,8 @@ export function Dashboard() {
       </Tabs>
 
       {showPlanner && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-background border border-border">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-4">
+          <div className="w-full max-w-lg sm:rounded-2xl rounded-none sm:max-h-[90vh] max-h-screen overflow-y-auto bg-background border border-border">
             <WorkoutPlannerForm
               userId={user?.id ?? ''}
               existingBodyFat={bodyScan?.body_fat_percent}
@@ -730,7 +730,7 @@ function EditProfileTab({
   }
 
   return (
-    <div className='grid gap-4 lg:grid-cols-2'>
+    <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
       <Card className='border-border/50'>
         <CardContent className='p-5'>
           <div className='mb-4 flex items-center gap-2'>
@@ -846,14 +846,14 @@ function EditProfileTab({
           {weeklyPlan && weeklyPlan.days && (
             <div className='mb-4'>
               <p className='text-sm font-semibold text-foreground mb-2'>This Week&apos;s Plan</p>
-              <div className='flex gap-2 overflow-x-auto pb-2'>
+              <div className='flex gap-2 overflow-x-auto pb-2 scrollbar-hide'>
                 {dayAbbreviations.map((dayAbbr, idx) => {
                   const dayNumber = idx + 1 // Mon=1, Tue=2, ..., Sun=7
                   const workoutDay = weeklyPlan.days.find((d: any) => d.day_number === dayNumber)
                   return (
                     <div
                       key={dayAbbr}
-                      className={`flex-shrink-0 px-2 py-2 rounded-xl text-xs text-center min-w-[44px] ${
+                      className={`flex-shrink-0 px-2 py-2 rounded-xl text-xs text-center min-w-[48px] ${
                         workoutDay
                           ? 'bg-[#00ff88]/10 border border-[#00ff88]/30 text-[#00ff88]'
                           : 'bg-muted text-muted-foreground'
