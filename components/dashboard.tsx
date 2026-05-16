@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, ScanLine, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User } from 'lucide-react'
+import { Activity, ScanLine, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -313,29 +313,22 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Streak Banner */}
-      <Card className='mb-4 overflow-hidden border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent'>
-        <CardContent className='flex items-center justify-between gap-3 px-4 py-2.5'>
+      {/* Streak Banner - Compact Single Row */}
+      <Card className={`mb-4 border rounded-2xl ${streak > 0 && scannedToday ? 'border-primary' : 'border-border'}`}>
+        <CardContent className='flex items-center justify-between gap-4 px-4 py-3'>
           <div className='flex items-center gap-3'>
-            <div className='flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 text-primary'>
-              <Flame className='h-4 w-4' />
-            </div>
-            <div className='leading-tight'>
-              <p className='text-[10px] font-medium uppercase tracking-wider text-muted-foreground'>
-                Scan Streak
-              </p>
-              <p className='text-base font-bold text-foreground'>
-                {streak} <span className='text-xs font-medium text-muted-foreground'>{streak === 1 ? 'day' : 'days'}</span>
-                <span className='ml-2 text-[11px] font-normal text-muted-foreground'>· {streakSubtitle}</span>
-              </p>
+            <Flame className={`h-5 w-5 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+            <div className='flex items-baseline gap-1'>
+              <span className='text-lg font-bold text-foreground'>{streak}</span>
+              <span className='text-xs text-muted-foreground'>day streak</span>
             </div>
           </div>
-          {streak > 0 && (
+          {streak > 0 && !scannedToday && (
             <Badge
-              className='rounded-full border-0 bg-primary/20 px-2 py-0.5 text-[10px] text-primary'
+              className='rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500'
               variant='secondary'
             >
-              {scannedToday ? 'Active today' : 'At risk'}
+              At risk
             </Badge>
           )}
         </CardContent>
@@ -465,7 +458,7 @@ export function Dashboard() {
 
 
         <TabsContent value='profile'>
-          <EditProfileTab profile={profile} user={user} onSaved={(updated) => setProfile(updated)} />
+          <EditProfileTab profile={profile} user={user} onSaved={(updated) => setProfile(updated)} hasWorkoutPlan={hasWorkoutPlan} onOpenPlanner={() => setShowPlanner(true)} />
         </TabsContent>
 
         <TabsContent value='progress'>
@@ -560,8 +553,8 @@ export function Dashboard() {
       </Tabs>
 
       {showPlanner && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0a0a0a] border border-white/10">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-background border border-border">
             <WorkoutPlannerForm
               userId={user?.id ?? ''}
               existingBodyFat={bodyScan?.body_fat_percent}
@@ -655,10 +648,14 @@ function EditProfileTab({
   profile,
   user,
   onSaved,
+  hasWorkoutPlan,
+  onOpenPlanner,
 }: {
   profile: Profile
   user: any
   onSaved: (updated: Profile) => void
+  hasWorkoutPlan: boolean
+  onOpenPlanner: () => void
 }) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -806,6 +803,27 @@ function EditProfileTab({
           <p className='mt-4 text-[10px] text-muted-foreground'>
             Goals are recalculated automatically when you save changes to your profile.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Workout Plan Card */}
+      <Card className='border-border/50 lg:col-span-2'>
+        <CardContent className='p-5'>
+          <div className='mb-3 flex items-center gap-2'>
+            <Dumbbell className='h-4 w-4 text-primary' />
+            <p className='text-sm font-semibold text-foreground'>Workout Plan</p>
+          </div>
+          <p className='mb-4 text-xs text-muted-foreground'>
+            {hasWorkoutPlan
+              ? 'Create a new AI-generated workout plan based on your current profile and goals.'
+              : 'Let AI build your personalized weekly workout plan.'}
+          </p>
+          <Button
+            onClick={onOpenPlanner}
+            className='w-full bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-xl py-2.5 text-sm mt-3 hover:opacity-90'
+          >
+            {hasWorkoutPlan ? 'Regenerate Workout Plan ✨' : 'Create Workout Plan ✨'}
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, X, ChevronLeft, ChevronRight, User } from 'lucide-react'
 
 interface Props {
   userId: string
@@ -222,10 +222,10 @@ Return exactly this JSON structure and nothing else:
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-[#00ff88]" />
-          <p className="text-[#00ff88] font-semibold">AI is building your personalized plan...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-foreground font-semibold">AI is building your personalized plan...</p>
         </div>
       </div>
     )
@@ -234,8 +234,8 @@ Return exactly this JSON structure and nothing else:
   if (error) {
     return (
       <div className="p-6">
-        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 mb-4">
-          <p className="text-red-500 text-sm font-medium">{error}</p>
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 mb-4">
+          <p className="text-destructive text-sm font-medium">{error}</p>
         </div>
         <Button
           onClick={() => {
@@ -252,15 +252,15 @@ Return exactly this JSON structure and nothing else:
 
   return (
     <div className="p-6">
-      {/* Header with progress */}
+      {/* Header with step title and progress */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold text-white">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-foreground">
             {getStepTitle(currentStep)}
           </h2>
+          <p className="text-xs text-muted-foreground">Step {currentStep} of 7</p>
         </div>
-        <Progress value={(currentStep / 7) * 100} className="h-2 bg-white/10" />
-        <p className="text-xs text-[#888] mt-2">Step {currentStep} of 7</p>
+        <Progress value={(currentStep / 7) * 100} className="h-2" />
       </div>
 
       {/* Step content */}
@@ -319,7 +319,7 @@ Return exactly this JSON structure and nothing else:
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex-1 border-white/10 text-white hover:bg-white/5"
+            className="flex-1 border-border bg-muted text-foreground hover:bg-muted/80"
           >
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back
@@ -338,7 +338,7 @@ Return exactly this JSON structure and nothing else:
           <Button
             onClick={handleGeneratePlan}
             disabled={!isStepValid(7, formData)}
-            className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50"
+            className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50 py-3"
           >
             Generate My Workout Plan ✨
           </Button>
@@ -362,7 +362,7 @@ function Step1Gender({
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-white mb-3">Gender</label>
+        <label className="block text-sm font-medium text-foreground mb-3">Gender</label>
         <div className="grid grid-cols-3 gap-3">
           {(['male', 'female', 'other'] as const).map((gender) => (
             <button
@@ -370,8 +370,8 @@ function Step1Gender({
               onClick={() => onChange(gender)}
               className={`p-4 rounded-xl border-2 font-semibold capitalize transition ${
                 selected === gender
-                  ? 'border-[#00ff88] text-[#00ff88] bg-[#00ff88]/10'
-                  : 'border-white/10 text-white bg-[#111111] hover:border-white/20'
+                  ? 'border-[#00ff88] text-foreground bg-[#00ff88]/10'
+                  : 'border-border text-foreground bg-card hover:border-border/80'
               }`}
             >
               {gender}
@@ -381,15 +381,15 @@ function Step1Gender({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-white mb-2">
-          Body Fat % <span className="text-[#888]">(optional)</span>
+        <label className="block text-sm font-medium text-foreground mb-2">
+          Body Fat % <span className="text-muted-foreground">(optional)</span>
         </label>
         <input
           type="number"
           value={bodyFatPercent ?? ''}
           onChange={(e) => onBodyFatChange(e.target.value ? parseFloat(e.target.value) : null)}
           placeholder="e.g. 20"
-          className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-white/10 rounded-xl text-white placeholder:text-[#888]"
+          className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground"
         />
       </div>
     </div>
@@ -413,7 +413,7 @@ function Step2Goal({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-white mb-3">Your Main Goal</label>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Main Goal</label>
       <div className="grid grid-cols-1 gap-3">
         {goals.map(({ id, emoji, desc }) => (
           <button
@@ -422,16 +422,16 @@ function Step2Goal({
             className={`p-4 rounded-xl border-2 text-left transition ${
               selected === id
                 ? 'border-[#00ff88] bg-[#00ff88]/10'
-                : 'border-white/10 bg-[#111111] hover:border-white/20'
+                : 'border-border bg-card hover:border-border/80'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">{emoji}</span>
               <div>
-                <p className={`font-semibold ${selected === id ? 'text-[#00ff88]' : 'text-white'}`}>
+                <p className={`font-semibold ${selected === id ? 'text-foreground' : 'text-foreground'}`}>
                   {id}
                 </p>
-                <p className="text-xs text-[#888]">{desc}</p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
               </div>
             </div>
           </button>
@@ -460,12 +460,14 @@ function Step3SecondaryGoal({
 
   return (
     <div className="space-y-4">
-      <button
-        onClick={onSkip}
-        className="text-[#00ff88] text-sm font-medium hover:underline"
-      >
-        Skip this step →
-      </button>
+      <div className="flex justify-end">
+        <button
+          onClick={onSkip}
+          className="text-muted-foreground text-sm font-medium hover:text-foreground"
+        >
+          Skip →
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         {goals.map(({ id, emoji }) => (
@@ -475,11 +477,11 @@ function Step3SecondaryGoal({
             className={`p-4 rounded-xl border-2 text-center transition ${
               selected === id
                 ? 'border-[#00ff88] bg-[#00ff88]/10'
-                : 'border-white/10 bg-[#111111] hover:border-white/20'
+                : 'border-border bg-card hover:border-border/80'
             }`}
           >
             <p className="text-2xl mb-2">{emoji}</p>
-            <p className={`text-sm font-semibold ${selected === id ? 'text-[#00ff88]' : 'text-white'}`}>
+            <p className={`text-sm font-semibold text-foreground`}>
               {id}
             </p>
           </button>
@@ -504,7 +506,7 @@ function Step4Experience({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-white mb-3">Your Experience</label>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Experience</label>
       <div className="grid grid-cols-1 gap-3">
         {levels.map(({ id, subtitle }) => (
           <button
@@ -513,13 +515,13 @@ function Step4Experience({
             className={`p-4 rounded-xl border-2 text-left transition ${
               selected === id
                 ? 'border-[#00ff88] bg-[#00ff88]/10'
-                : 'border-white/10 bg-[#111111] hover:border-white/20'
+                : 'border-border bg-card hover:border-border/80'
             }`}
           >
-            <p className={`font-semibold ${selected === id ? 'text-[#00ff88]' : 'text-white'}`}>
+            <p className={`font-semibold text-foreground`}>
               {id}
             </p>
-            <p className="text-xs text-[#888]">{subtitle}</p>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
           </button>
         ))}
       </div>
@@ -538,7 +540,7 @@ function Step5WorkoutDays({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-white mb-3">
+      <label className="block text-sm font-medium text-foreground mb-3">
         How many days per week can you train?
       </label>
       <div className="grid grid-cols-4 gap-3">
@@ -546,13 +548,14 @@ function Step5WorkoutDays({
           <button
             key={day}
             onClick={() => onChange(day)}
-            className={`p-4 rounded-xl font-semibold transition ${
+            className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-1 ${
               selected === day
                 ? 'bg-[#00ff88] text-black'
-                : 'bg-[#111111] border border-white/10 text-white hover:border-white/20'
+                : 'bg-card border border-border text-foreground hover:border-border/80'
             }`}
           >
-            {day} days
+            <span className="text-lg font-bold">{day}</span>
+            <span className="text-xs">days</span>
           </button>
         ))}
       </div>
@@ -572,21 +575,23 @@ function Step6Injuries({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-white mb-2">Any Injuries?</label>
+        <label className="block text-sm font-medium text-foreground mb-2">Any Injuries?</label>
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Describe any injuries or pain areas e.g. lower back pain, bad knees... (optional)"
-          className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-white placeholder:text-[#888] resize-none"
+          className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground resize-none"
           rows={4}
         />
       </div>
-      <button
-        onClick={onSkip}
-        className="text-[#00ff88] text-sm font-medium hover:underline"
-      >
-        Skip this step →
-      </button>
+      <div className="flex justify-end">
+        <button
+          onClick={onSkip}
+          className="text-muted-foreground text-sm font-medium hover:text-foreground"
+        >
+          Skip →
+        </button>
+      </div>
     </div>
   )
 }
@@ -607,7 +612,7 @@ function Step7Lifestyle({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-white mb-3">Your Lifestyle</label>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Lifestyle</label>
       <div className="grid grid-cols-1 gap-3">
         {lifestyles.map(({ id, emoji, subtitle }) => (
           <button
@@ -616,16 +621,16 @@ function Step7Lifestyle({
             className={`p-4 rounded-xl border-2 text-left transition ${
               selected === id
                 ? 'border-[#00ff88] bg-[#00ff88]/10'
-                : 'border-white/10 bg-[#111111] hover:border-white/20'
+                : 'border-border bg-card hover:border-border/80'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">{emoji}</span>
               <div>
-                <p className={`font-semibold ${selected === id ? 'text-[#00ff88]' : 'text-white'}`}>
+                <p className={`font-semibold text-foreground`}>
                   {id}
                 </p>
-                <p className="text-xs text-[#888]">{subtitle}</p>
+                <p className="text-xs text-muted-foreground">{subtitle}</p>
               </div>
             </div>
           </button>
