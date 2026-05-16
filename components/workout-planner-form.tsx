@@ -77,43 +77,43 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete }: Prop
   }
 
   const handleGeneratePlan = async () => {
-    setLoading(true)
-    setError(null)
+  setLoading(true)
+  setError(null)
 
-    try {
-      // Fetch user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('name, age, weight, height')
-        .eq('id', userId)
-        .single()
+  try {
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('name, age, weight, height')
+      .eq('id', userId)
+      .single()
 
-      if (profileError) throw new Error('Failed to fetch profile')
+    if (profileError) throw new Error('Failed to fetch profile')
 
-      const { age, weight, height, name } = profile
+    const { age, weight, height } = profile
 
-      // Upsert workout_profiles
-      const { error: upsertError } = await supabase
-        .from('workout_profiles')
-        .upsert(
-          {
-            user_id: userId,
-            gender: formData.gender,
-            body_fat_percent: formData.bodyFatPercent,
-            fitness_goal: formData.fitnessGoal,
-            secondary_goal: formData.secondaryGoal,
-            experience_level: formData.experienceLevel,
-            days_per_week: formData.daysPerWeek,
-            injury_info: formData.injuryInfo || null,
-            lifestyle: formData.lifestyle,
-          },
-          { onConflict: 'user_id' }
-        )
+    // Upsert workout_profiles
+    const { error: upsertError } = await supabase
+      .from('workout_profiles')
+      .upsert(
+        {
+          user_id: userId,
+          gender: formData.gender,
+          body_fat_percent: formData.bodyFatPercent,
+          fitness_goal: formData.fitnessGoal,
+          secondary_goal: formData.secondaryGoal,
+          experience_level: formData.experienceLevel,
+          days_per_week: formData.daysPerWeek,
+          injury_info: formData.injuryInfo || null,
+          lifestyle: formData.lifestyle,
+        },
+        { onConflict: 'user_id' }
+      )
 
-      if (upsertError) throw new Error('Failed to save workout profile')
+    if (upsertError) throw new Error('Failed to save workout profile')
 
-      // Build Gemini prompt
-      const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
+    // Build Gemini prompt
+    const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
 
 User details: age ${age}, gender ${formData.gender}, weight ${weight}kg, height ${height}cm, body fat ${formData.bodyFatPercent}%, main goal: ${formData.fitnessGoal}, secondary goal: ${formData.secondaryGoal || 'none'}, experience: ${formData.experienceLevel}, training days per week: ${formData.daysPerWeek}, lifestyle: ${formData.lifestyle}, injuries or limitations: ${formData.injuryInfo || 'none'}.
 
@@ -144,88 +144,81 @@ Return exactly this JSON structure and nothing else:
   "tips": ["string", "string", "string"]
 }`
 
-      // Call Gemini API
-      const { data, error: geminiError } = await supabase.functions.invoke('gemini', {
-        body: {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2000 },
-        },
-      })
+    // Call Gemini API directly — only one clean call
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4000 },
+      }),
+    })
 
-      if (geminiError || !data) {
-        // Fallback: try direct API call
-        const response = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 2000 },
-          }),
-        })
+    if (!response.ok) throw new Error('Failed to call Gemini API')
 
-        if (!response.ok) {
-          throw new Error('Failed to generate workout plan')
-        }
+    const result = await response.json()
 
-        const result = await response.json()
-        const responseText = result.candidates[0].content.parts[0].text
-
-        // Clean markdown code fences
-        let cleanedText = responseText
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim()
-
-        const plan = JSON.parse(cleanedText) as WorkoutPlan
-
-        // Insert workout plan
-        const { data: planData, error: planError } = await supabase
-          .from('workout_plans')
-          .insert({ user_id: userId, plan })
-          .select('id')
-          .single()
-
-        if (planError || !planData) throw new Error('Failed to save workout plan')
-
-        const planId = planData.id
-
-        // Create workout logs
-        const today = new Date()
-        const dayOfWeek = today.getDay()
-
-        for (const day of plan.days) {
-          const dayNumber = day.day_number
-          const daysUntilTarget = ((dayNumber === 0 ? 7 : dayNumber) - dayOfWeek + 7) % 7
-          const workoutDate = new Date(today)
-          if (daysUntilTarget === 0 && dayOfWeek !== (dayNumber === 0 ? 7 : dayNumber)) {
-            workoutDate.setDate(workoutDate.getDate() + 7)
-          } else {
-            workoutDate.setDate(workoutDate.getDate() + daysUntilTarget)
-          }
-
-          const dateStr = workoutDate.toISOString().split('T')[0]
-
-          const { error: logError } = await supabase
-            .from('workout_logs')
-            .insert({
-              user_id: userId,
-              plan_id: planId,
-              workout_date: dateStr,
-              day_name: day.day_name,
-              completed: false,
-            })
-
-          if (logError) console.error('Failed to create workout log:', logError)
-        }
-
-        onComplete()
-      }
-    } catch (err) {
-      console.error('Error generating plan:', err)
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-      setLoading(false)
+    if (!result.candidates || !result.candidates[0]) {
+      throw new Error('Gemini returned empty response')
     }
+
+    let rawText = result.candidates[0].content.parts[0].text
+
+    // Clean any markdown fences
+    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim()
+
+    // Extract only the JSON part safely
+    const start = rawText.indexOf('{')
+    const end = rawText.lastIndexOf('}')
+    if (start === -1 || end === -1) throw new Error('Invalid JSON from Gemini')
+    const cleanJson = rawText.substring(start, end + 1)
+
+    const plan = JSON.parse(cleanJson) as WorkoutPlan
+
+    // Insert workout plan
+    const { data: planData, error: planError } = await supabase
+      .from('workout_plans')
+      .insert({ user_id: userId, plan })
+      .select('id')
+      .single()
+
+    if (planError || !planData) throw new Error('Failed to save workout plan')
+
+    const planId = planData.id
+
+    // Create workout logs
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+
+    for (const day of plan.days) {
+      const dayNumber = day.day_number
+      const daysUntilTarget = ((dayNumber === 0 ? 7 : dayNumber) - dayOfWeek + 7) % 7
+      const workoutDate = new Date(today)
+      if (daysUntilTarget === 0 && dayOfWeek !== (dayNumber === 0 ? 7 : dayNumber)) {
+        workoutDate.setDate(workoutDate.getDate() + 7)
+      } else {
+        workoutDate.setDate(workoutDate.getDate() + daysUntilTarget)
+      }
+
+      const dateStr = workoutDate.toISOString().split('T')[0]
+
+      await supabase.from('workout_logs').insert({
+        user_id: userId,
+        plan_id: planId,
+        workout_date: dateStr,
+        day_name: day.day_name,
+        completed: false,
+      })
+    }
+
+    onComplete()
+
+  } catch (err) {
+    console.error('Error generating plan:', err)
+    setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    setLoading(false)
   }
+}
 
   if (loading) {
     return (
