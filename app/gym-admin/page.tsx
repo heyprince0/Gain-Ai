@@ -118,7 +118,7 @@ export default function GymAdminPage() {
           .from('gyms')
           .select('*')
           .eq('owner_id', authUser.id)
-          .maybeSingle()
+          .single()
 
         if (error) throw error
         setGym(data)
@@ -198,7 +198,7 @@ export default function GymAdminPage() {
   }
 
   const generateSlug = (name: string) => {
-    return name.toLowerCase().trim().replace(/\s+/g, '-')
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).substr(2, 4)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
