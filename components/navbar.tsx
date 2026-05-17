@@ -26,7 +26,6 @@ export function Navbar() {
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/gym-admin", label: "Gym Admin" },
     { href: "/food-scanner", label: "Food Scanner" },
     { href: "/body-scanner", label: "Body Scanner" },
     { href: "/download", label: "Download App" },
@@ -34,7 +33,6 @@ export function Navbar() {
 
   const publicLinks = [
     { href: "/", label: "Home" },
-    { href: "/gym-admin", label: "Gym Admin" },
     { href: "/food-scanner", label: "Food Scanner" },
     { href: "/body-scanner", label: "Body Scanner" },
     { href: "/download", label: "Download App" },
@@ -42,7 +40,6 @@ export function Navbar() {
 
   const homePageLinks = [
     { href: "/", label: "Home" },
-    { href: "/gym-admin", label: "Gym Admin" },
     { href: "/food-scanner", label: "Food Scanner" },
     { href: "/body-scanner", label: "Body Scanner" },
     { href: "/download", label: "Download App" },
