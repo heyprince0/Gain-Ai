@@ -298,12 +298,6 @@ export function Dashboard() {
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-10'>
       {/* Profile Header */}
-      <div className='mb-8 flex items-center gap-4'>
-        <Avatar className='h-14 w-14 border-2 border-primary/20'>
-          <AvatarFallback className='bg-primary/10 text-lg font-bold text-primary'>
-            {initials}
-          </AvatarFallback>
-        </Avatar>
         <div>
           <h1 className='text-2xl font-bold tracking-tight text-foreground'>
             Welcome back, {displayName}
