@@ -500,6 +500,7 @@ function Step4SecondaryGoal({
     { id: 'Six Pack' },
     { id: 'Bigger Arms' },
     { id: 'Wider Shoulders' },
+    { id: 'Improve Cardio' },
     { id: 'Better Chest' },
     { id: 'Leg Strength' },
   ]
