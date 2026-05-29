@@ -619,8 +619,9 @@ function MacroRow({
   )
 }
 
-const calculateGoals = (age: number, weight: number, height: number, goal: string) => {
-  const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+const calculateGoals = (age: number, weight: number, height: number, goal: string, gender: string) => {
+  const bmrConstant = gender === 'Male' ? 5 : -161
+  const bmr = (10 * weight) + (6.25 * height) - (5 * age) + bmrConstant
   const tdee = Math.round(bmr * 1.55)
   let calories = goal === 'lose' ? tdee - 500 : goal === 'gain' ? tdee + 300 : tdee
   const protein = Math.round(weight * (goal === 'gain' ? 2.2 : goal === 'lose' ? 2.0 : 1.8))
@@ -702,7 +703,7 @@ function EditProfileTab({
       const age = parseInt(form.age)
       const weight = parseFloat(form.weight)
       const height = parseFloat(form.height)
-      const goals = calculateGoals(age, weight, height, form.goal)
+      const goals = calculateGoals(age, weight, height, form.goal, form.gender)
       const { error: err } = await supabase
         .from('profiles')
         .upsert({
