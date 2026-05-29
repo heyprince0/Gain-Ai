@@ -32,9 +32,9 @@ export async function POST(request: Request) {
   }
 
   if (payload.generationConfig) {
-    payload.generationConfig.maxOutputTokens = 8192
+    payload.generationConfig.maxOutputTokens = 12000
   } else {
-    payload.generationConfig = { maxOutputTokens: 8192 }
+    payload.generationConfig = { maxOutputTokens: 12000 }
   }
 
   const response = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
