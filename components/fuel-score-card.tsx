@@ -62,7 +62,7 @@ export function FuelScoreCard({
         <div className='mb-2 flex items-center gap-2'>
           <Zap className='h-4 w-4 text-primary' />
           <span className='text-[10px] font-medium uppercase tracking-wider text-muted-foreground'>
-            Overall Diet Score
+            Diet Accuracy
           </span>
         </div>
         <p className='text-xl font-bold text-foreground'>
