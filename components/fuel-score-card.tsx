@@ -23,13 +23,13 @@ export function FuelScoreCard({
       scoreLabel = '🔥 Excellent, Keep it up!'
       scoreColor = '#22c55e'
     } else if (todayScore >= 70) {
-      scoreLabel = 'Great effort! Stay consistent and keep going!'
+      scoreLabel = '✅ Good'
       scoreColor = '#86efac'
     } else if (todayScore >= 50) {
-      scoreLabel = `Stay focused! Clean meals will get you there!`
+      scoreLabel = `Need focus`
       scoreColor = '#facc15'
     } else {
-      scoreLabel = `Your body deserves better food!`
+      scoreLabel = `Cut Out Junk Food`
       scoreColor = '#ef4444'
     }
   }
