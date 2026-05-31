@@ -86,7 +86,7 @@ export const saveFuelScore = async (
   const todayEffect = Math.round(((todayRawScore - 50) / 50) * 25)
 
   // ── Step 7: Final score clamped 0-100 ─────────────────────
-  const fuelScore = Math.min(100, Math.max(0, baseScore + todayEffect))
+  const fuelScore = Math.min(100, Math.max(0, baseScore + finalEffect))
 
   // ── Step 8: Save ──────────────────────────────────────────
   await supabase.from('fuel_scores').upsert({
