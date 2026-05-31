@@ -404,7 +404,7 @@ export function Dashboard() {
             Progress
           </TabsTrigger>
           <TabsTrigger value='profile' className='rounded-lg text-xs'>
-            Edit Profile
+            Profile
           </TabsTrigger>
         </TabsList>
 
@@ -500,7 +500,7 @@ export function Dashboard() {
                         Last Updated
                       </span>
                       <span className='text-sm font-semibold text-foreground'>
-                        {bodyScan?.scanned_at ? formatIST(bodyScan.scanned_at) : 'N/A'}
+                        {bodyScan?.scanned_at ? new Date(bodyScan.scanned_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' }) : 'N/A'}
                       </span>
                     </div>
                     {bodyScan?.body_type && (
