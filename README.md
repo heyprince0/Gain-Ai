@@ -98,15 +98,6 @@ fuelScore      = yesterdayScore + todayEffect         → clamped 0–100
 
 ---
 
-## Environment Variables
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-GEMINI_API_KEY=
-```
-
----
 
 ## Running Locally
 
@@ -132,6 +123,5 @@ npm run dev
 
 ## Author
 
-Built by **Prakash Jadhav** — 17-year-old solo founder building [Anthora](https://github.com/heyPrakash).
+Built by **Prakash Jadhav** — solo founder building [Anthora](https://github.com/heyPrakash).
 
-> *"i made it..."* — the original README, preserved for posterity.
