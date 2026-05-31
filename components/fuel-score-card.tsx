@@ -39,10 +39,10 @@ export function FuelScoreCard({
   let diffColor = ''
   if (diff !== null) {
     if (diff > 0) {
-      diffText = `↑ +${diff}% vs yesterday`
+      diffText = `↑ +${diff}% Better today`
       diffColor = '#22c55e'
     } else if (diff < 0) {
-      diffText = `↓ ${diff}% vs yesterday`
+      diffText = `↓ ${diff}% Dropped today`
       diffColor = '#ef4444'
     } else {
       diffText = '→ Same as yesterday'
