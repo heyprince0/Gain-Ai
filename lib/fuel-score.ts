@@ -62,14 +62,7 @@ export const saveFuelScore = async (
   // Must consistently eat 8-9/10 to reach 90%+
   let todayEffect = 0
   if (avgMealScore !== null) {
-    if (avgMealScore >= 9)      todayEffect = 15   // truly exceptional
-    else if (avgMealScore >= 8) todayEffect = 10   // great day
-    else if (avgMealScore >= 7) todayEffect = 5    // good day
-    else if (avgMealScore >= 6) todayEffect = 2    // decent day
-    else if (avgMealScore >= 5) todayEffect = 0    // neutral
-    else if (avgMealScore >= 4) todayEffect = -5   // below average
-    else if (avgMealScore >= 3) todayEffect = -10  // bad day
-    else                        todayEffect = -15  // terrible day
+    todayEffect = Math.round(((avgMealScore - 5) / 5) * 15)
   }
 
   // ── Step 4: Final score clamped 0-100 ─────────────────────
