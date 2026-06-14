@@ -516,7 +516,7 @@ export function Dashboard() {
           </div>
 
             {/* Today's Meals - Overview */}
-            <Card className='border-border/50'>
+            <Card className='border-border/50 mt-2'>
               <CardContent className='p-2'>
                 {todayScans.length > 0 ? (
                   todayScans.map((scan) => {
@@ -527,11 +527,11 @@ export function Dashboard() {
                       <div
                         key={scan.id ?? scan.scanned_at}
                         style={{
-                          padding: '20px 16px',
+                          padding: '12px 16px',
                           borderRadius: '10px',
                           borderLeft: `4px solid ${color}`,
                           background: `${color}12`,
-                          marginBottom: '80px',
+                          marginBottom: '8px',
                         }}
                       >
                         <div style={{ fontWeight: '600', marginBottom: '4px' }}>
