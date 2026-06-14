@@ -527,11 +527,11 @@ export function Dashboard() {
                       <div
                         key={scan.id ?? scan.scanned_at}
                         style={{
-                          padding: '12px 16px',
+                          padding: '20px 16px',
                           borderRadius: '10px',
                           borderLeft: `4px solid ${color}`,
                           background: `${color}12`,
-                          marginBottom: '4px',
+                          marginBottom: '80px',
                         }}
                       >
                         <div style={{ fontWeight: '600', marginBottom: '4px' }}>
