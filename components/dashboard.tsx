@@ -505,6 +505,16 @@ export function Dashboard() {
               </CardContent>
             </Card>
 
+            {/* Log Meal Button */}
+            <button
+              onClick={() => setShowLogMeal(true)}
+              className='w-full lg:col-span-2 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-xl text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity'
+            >
+              <Plus className='h-4 w-4' />
+              Log a Meal
+            </button>
+          </div>
+
             {/* Today's Meals - Overview */}
             <Card className='border-border/50'>
               <CardContent className='p-2'>
@@ -541,15 +551,7 @@ export function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Log Meal Button */}
-            <button
-              onClick={() => setShowLogMeal(true)}
-              className='w-full lg:col-span-2 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-xl text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity'
-            >
-              <Plus className='h-4 w-4' />
-              Log a Meal
-            </button>
-          </div>
+            
 
 
         </TabsContent>
