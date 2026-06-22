@@ -48,14 +48,20 @@ export const saveFuelScore = async (
     s => s.health_score != null && s.health_score > 0
   )
 
+  // Average meal quality (0-10)
   const avgMealScore = scansWithScore.length > 0
-    ? scansWithScore.reduce((s, x) => {
-        const n = (x.health_score ?? 0) > 10
-          ? (x.health_score ?? 0) / 10
-          : (x.health_score ?? 0)
-        return s + n
-      }, 0) / scansWithScore.length
-    : null
+  ? scansWithScore.reduce((s, x) => {
+      const n = (x.health_score ?? 0) > 10
+        ? (x.health_score ?? 0) / 10
+        : (x.health_score ?? 0)
+      return s + n
+    }, 0) / scansWithScore.length
+  : null
+
+// Direct daily score
+const fuelScore = avgMealScore
+  ? Math.round(avgMealScore * 10)
+  : 0
 
   // ── Step 3: Strict effect tiers ───────────────────────────
   // No meals logged = no change to score
