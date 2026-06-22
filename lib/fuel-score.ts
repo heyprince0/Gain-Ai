@@ -72,7 +72,7 @@ const fuelScore = avgMealScore
   }
 
   // ── Step 4: Final score clamped 0-100 ─────────────────────
-  const fuelScore = Math.min(100, Math.max(0, baseScore + todayEffect))
+
 
   // ── Step 5: Save ──────────────────────────────────────────
   await supabase.from('fuel_scores').upsert({
