@@ -710,33 +710,36 @@ function StatCard({
 }
 
 function MacroRow({
-  label,
-  current,
-  goal,
+label,
+current,
+goal,
 }: {
-  label: string
-  current: number
-  goal: number
+label: string
+current: number
+goal: number
 }) {
-  const percent = Math.round((current / goal) * 100)
-  return (
-    <div>
-      <div className='mb-1 flex items-center justify-between'>
-        <span className='text-xs font-medium text-muted-foreground'>
-          {label}
-        </span>
-        <span className='text-xs text-foreground'>
-          <span className='font-semibold'>
-  {Number(current.toFixed(1))}g
-</span>
-<span className='text-muted-foreground'>
-  / {Number(goal.toFixed(1))}g
-</span>
-      </div>
-      <Progress value={Math.min(percent, 100)} className='h-2' />
-    </div>
-  )
-}
+const percent = goal > 0
+? Math.round((current / goal) * 100)
+: 0
+
+return ( <div> <div className='mb-1 flex items-center justify-between'> <span className='text-xs font-medium text-muted-foreground'>
+{label} </span>
+
+    <span className='text-xs text-foreground'>
+      <span className='font-semibold'>
+        {Number(current.toFixed(1))}g
+      </span>
+      <span className='text-muted-foreground'>
+        {' '} / {Number(goal.toFixed(1))}g
+      </span>
+    </span>
+  </div>
+
+  <Progress
+    value={Math.min(percent, 100)}
+    className='h-2'
+  />
+</div>
 
 const calculateGoals = (age: number, weight: number, height: number, goal: string, gender: string) => {
   const bmrConstant = gender === 'Male' ? 5 : -161
