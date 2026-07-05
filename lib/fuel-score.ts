@@ -36,18 +36,21 @@ export const saveFuelScore = async (
     (s) => s.health_score != null && s.health_score > 0
   )
 
-  // Average meal quality (0-10)
-  const avgMealScore =
-    scansWithScore.length > 0
-      ? scansWithScore.reduce((sum, meal) => {
-          const score =
-            (meal.health_score ?? 0) > 10
-              ? (meal.health_score ?? 0) / 10
-              : (meal.health_score ?? 0)
-
-          return sum + score
-        }, 0) / scansWithScore.length
-      : null
+  // --- FIX: weighted average (weight = score itself) ---
+  let avgMealScore: number | null = null
+  if (scansWithScore.length > 0) {
+    let weightedSum = 0
+    let totalWeight = 0
+    for (const meal of scansWithScore) {
+      // Normalise health_score to 0–10 (same logic as before)
+      const raw = meal.health_score ?? 0
+      const score = raw > 10 ? raw / 10 : raw
+      // weight = score (so better meals count more)
+      weightedSum += score * score
+      totalWeight += score
+    }
+    avgMealScore = totalWeight > 0 ? weightedSum / totalWeight : 0
+  }
 
   // Final Diet Accuracy (0-100)
   const fuelScore =
