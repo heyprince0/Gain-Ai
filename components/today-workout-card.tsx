@@ -100,13 +100,18 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
         // Found a workout for today
         setTodayWorkout(todayDayWorkout)
 
-        // Check if already logged and completed today
+        // Check if already logged and completed today (scoped to TODAY's date,
+        // not just day_name — day_name repeats every week, so without a date
+        // filter this was matching last week's completed log)
+        const todayDateStr = today.toISOString().split('T')[0] // YYYY-MM-DD
+
         const { data: logData, error: logError } = await supabase
           .from('workout_logs')
           .select('id, completed, completed_at')
           .eq('user_id', userId)
           .eq('plan_id', planId)
           .eq('day_name', todayDayWorkout.day_name)
+          .eq('workout_date', todayDateStr)
           .order('created_at', { ascending: false })
           .limit(1)
           .single()
@@ -120,6 +125,7 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
               plan_id: planId,
               day_name: todayDayWorkout.day_name,
               day_of_week: planDayNumber,
+              workout_date: todayDateStr,
               completed: false,
             })
             .select()
@@ -326,3 +332,4 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
 
   return null
 }
+
