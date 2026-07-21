@@ -123,5 +123,5 @@ npm run dev
 
 ## Author
 
-Built by **Prakash Jadhav** — solo founder building [Anthora](https://github.com/heyPrakash).
+Built by **Prince** — solo founder building [Cosmos](https://github.com/heyPrakash).
 
