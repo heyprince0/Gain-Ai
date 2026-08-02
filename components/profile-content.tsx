@@ -7,7 +7,11 @@ import { useTheme } from 'next-themes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { User, Target, Moon, Sun, Dumbbell, Loader2 } from 'lucide-react'
+import { User, Target, Moon, Sun, Dumbbell, Loader2, CalendarDays } from 'lucide-react'
+import { WorkoutPlannerForm } from '@/components/workout-planner-form'
+
+const cleanName = (name: string) => name.replace(/\s[A-C]$/i, '').trim()
+const dayAbbreviations = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 interface Profile {
   id: string
@@ -32,6 +36,7 @@ interface WorkoutProfile {
   experience_level?: string
   days_per_week?: number
   athlete_type?: string
+  body_fat_percent?: number
 }
 
 export function ProfileContent() {
@@ -41,6 +46,8 @@ export function ProfileContent() {
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [workoutProfile, setWorkoutProfile] = useState<WorkoutProfile | null>(null)
+  const [weeklyPlan, setWeeklyPlan] = useState<any>(null)
+  const [showPlanner, setShowPlanner] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -91,6 +98,22 @@ export function ProfileContent() {
 
         if (workoutData) {
           setWorkoutProfile(workoutData)
+        }
+
+        // Fetch latest weekly workout plan
+        const { data: planData, error: planError } = await supabase
+          .from('workout_plans')
+          .select('plan')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (planError && planError.code !== 'PGRST116') {
+          console.error('Error fetching weekly plan:', planError)
+        }
+        if (planData) {
+          setWeeklyPlan(planData.plan)
         }
       } catch (err) {
         console.error('Error fetching profile:', err)
@@ -399,6 +422,53 @@ export function ProfileContent() {
         </Card>
       )}
 
+      {/* Weekly Workout Plan Card */}
+      <Card className='rounded-2xl border-border/50 mb-6'>
+        <CardContent className='p-6'>
+          <div className='flex items-center gap-2 mb-6'>
+            <CalendarDays className='h-5 w-5 text-primary' />
+            <h2 className='text-lg font-semibold text-foreground'>Your Weekly Plan</h2>
+          </div>
+
+          {weeklyPlan && weeklyPlan.days && (
+            <div className='mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide'>
+              {dayAbbreviations.map((dayAbbr, idx) => {
+                const dayNumber = idx + 1 // Mon=1, Tue=2, ..., Sun=7
+                const workoutDay = weeklyPlan.days.find((d: any) => d.day_number === dayNumber)
+                return (
+                  <div
+                    key={dayAbbr}
+                    className={`flex-shrink-0 px-2 py-2 rounded-xl text-xs text-center min-w-[48px] ${
+                      workoutDay
+                        ? 'bg-[#00ff88]/20 border border-[#00ff88]/50 text-[#00cc6a]'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    <div className='font-bold'>{dayAbbr}</div>
+                    <div className='text-[10px] mt-0.5'>
+                      {workoutDay ? cleanName(workoutDay.focus) : 'Rest'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <p className='mb-4 text-xs text-muted-foreground'>
+            {weeklyPlan
+              ? 'Create a new AI-generated workout plan based on your current profile and goals.'
+              : "Let AI build your personalized weekly workout plan."}
+          </p>
+
+          <Button
+            onClick={() => setShowPlanner(true)}
+            className='w-full rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30'
+          >
+            {weeklyPlan ? 'Regenerate Workout Plan ✨' : 'Create Workout Plan ✨'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Theme Toggle Card */}
       <Card className='rounded-2xl border-border/50'>
         <CardContent className='p-6'>
@@ -422,6 +492,21 @@ export function ProfileContent() {
           </div>
         </CardContent>
       </Card>
+
+      {showPlanner && user && (
+        <div className='fixed inset-0 z-[10000] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-4'>
+          <div className='w-full max-w-lg sm:rounded-2xl rounded-none sm:max-h-[90vh] max-h-screen overflow-y-auto bg-background border border-border'>
+            <WorkoutPlannerForm
+              userId={user.id}
+              existingBodyFat={workoutProfile?.body_fat_percent}
+              onComplete={() => {
+                setShowPlanner(false)
+                window.location.reload()
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
