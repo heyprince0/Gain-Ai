@@ -41,7 +41,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
   const { user } = useAuth()
   const [state, setState] = useState<'input' | 'result'>('input')
   const [foodName, setFoodName] = useState('')
-  const [quantity, setQuantity] = useState(0)
+  const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('grams (g)')
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -82,6 +82,12 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
       return
     }
 
+    const quantityNum = Number(quantity)
+    if (!quantity || isNaN(quantityNum) || quantityNum <= 0) {
+      setError('Please enter a quantity')
+      return
+    }
+
     setAnalyzing(true)
     setError(null)
 
@@ -92,7 +98,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           foodName: foodName.trim(),
-          quantity,
+          quantity: quantityNum,
           unit: unitShort,
         }),
       })
@@ -188,7 +194,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
 
   const resetForm = () => {
     setFoodName('')
-    setQuantity(0)
+    setQuantity('')
     setUnit('grams (g)')
     setAnalyzing(false)
     setError(null)
@@ -231,8 +237,9 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
                   <input
                     type='number'
                     min='1'
+                    placeholder='e.g. 200'
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) => setQuantity(e.target.value)}
                     className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none'
                   />
                 </div>
@@ -276,7 +283,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
               </Button>
               <Button
                 onClick={handleAnalyze}
-                disabled={analyzing || !foodName.trim()}
+                disabled={analyzing || !foodName.trim() || !quantity}
                 className='flex-1 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:opacity-90'
               >
                 {analyzing ? (
