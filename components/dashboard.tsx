@@ -400,6 +400,22 @@ export function Dashboard() {
         </p>
       </div>
 
+      {/* Streak Strip */}
+      <div className='flex items-center gap-2 mb-3 text-sm'>
+        <Flame className={`h-4 w-4 flex-shrink-0 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+        <span className='font-semibold text-foreground'>
+          {streak} day{streak === 1 ? '' : 's'} streak
+        </span>
+        {streak > 0 && !scannedToday && (
+          <Badge
+            className='rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500'
+            variant='secondary'
+          >
+            At risk
+          </Badge>
+        )}
+      </div>
+
       {/* Today's Workout Card - First */}
       <TodayWorkoutCard
         userId={user?.id ?? ''}
@@ -477,24 +493,28 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Streak and Fuel Score Row */}
+      {/* Body Stats and Fuel Score Row */}
       <div className='grid grid-cols-2 gap-3 mb-6'>
         <Card className='rounded-2xl border-border/50'>
           <CardContent className='p-4'>
             <div className='flex items-center gap-2 mb-2'>
-              <Flame className={`h-4 w-4 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
-              <span className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Streak</span>
+              <Activity className='h-4 w-4 text-primary' />
+              <span className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Body</span>
             </div>
-            <div className='flex items-baseline gap-1'>
-              <span className='text-2xl font-bold text-foreground'>{streak}</span>
-              <span className='text-xs text-muted-foreground'>days</span>
-            </div>
-            {streak > 0 && !scannedToday && (
+            {bodyScan?.body_fat != null ? (
+              <div className='flex items-baseline gap-1'>
+                <span className='text-2xl font-bold text-foreground'>{bodyScan.body_fat}%</span>
+                <span className='text-xs text-muted-foreground'>fat</span>
+              </div>
+            ) : (
+              <span className='text-sm text-muted-foreground'>No scan yet</span>
+            )}
+            {bodyScan?.body_type && (
               <Badge
-                className='rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500 mt-2'
+                className='rounded-full border-0 bg-primary/10 px-2 py-0.5 text-[10px] text-primary mt-2'
                 variant='secondary'
               >
-                At risk
+                {bodyScan.body_type}
               </Badge>
             )}
           </CardContent>
