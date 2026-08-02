@@ -56,7 +56,13 @@ interface BodyScan {
 }
 
 const formatIST = (dateString: string, timeOnly = false) => {
-  const date = new Date(dateString)
+  // Supabase's `scanned_at` column is `timestamp` (no timezone). It was inserted
+  // as a UTC instant, but Postgres strips the offset when storing it, so it comes
+  // back as a naive string like "2026-08-02T10:30:00" with no "Z"/offset. The
+  // browser then parses that as *local* time instead of UTC, throwing the
+  // displayed time off by your UTC offset. Re-tag it as UTC before converting.
+  const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString)
+  const date = new Date(hasTimezone ? dateString : `${dateString}Z`)
   if (timeOnly) {
     return date.toLocaleTimeString('en-IN', {
       timeZone: 'Asia/Kolkata',
@@ -343,13 +349,18 @@ export function Dashboard() {
 
   const calculateStreak = (scans: FoodScan[]) => {
     if (!scans || scans.length === 0) return 0
-    const istDateKey = (iso: string) =>
-      new Intl.DateTimeFormat('en-CA', {
+    const istDateKey = (iso: string) => {
+      // Same fix as formatIST: scanned_at comes back from Supabase as a naive
+      // string (no "Z"), but it represents a UTC instant — tag it as UTC before
+      // converting to an IST calendar date, or the streak can land on the wrong day.
+      const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(iso)
+      return new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-      }).format(new Date(iso))
+      }).format(new Date(hasTimezone ? iso : `${iso}Z`))
+    }
 
     const days = new Set(scans.map((s) => istDateKey(s.scanned_at)))
     const todayKey = istDateKey(new Date().toISOString())
