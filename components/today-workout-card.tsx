@@ -107,7 +107,7 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
 
         const { data: logData, error: logError } = await supabase
           .from('workout_logs')
-          .select('id, completed, completed_at')
+          .select('id, completed, completed_at, plan_id, day_name')
           .eq('user_id', userId)
           .eq('plan_id', planId)
           .eq('day_name', todayDayWorkout.day_name)
@@ -128,18 +128,34 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
               workout_date: todayDateStr,
               completed: false,
             })
-            .select()
+            .select('id, completed, completed_at, plan_id, day_name')
             .single()
 
           if (insertError) throw insertError
-          setTodayLog(newLog)
-          setState('not-completed')
+          if (newLog) {
+            const workoutLog: WorkoutLog = {
+              id: newLog.id,
+              plan_id: newLog.plan_id,
+              day_name: newLog.day_name,
+              completed: newLog.completed || false,
+              completed_at: newLog.completed_at || null,
+            }
+            setTodayLog(workoutLog)
+            setState('not-completed')
+          }
           return
         }
 
         if (logError) throw logError
 
-        setTodayLog(logData)
+        const workoutLog: WorkoutLog = {
+          id: logData.id,
+          plan_id: logData.plan_id,
+          day_name: logData.day_name,
+          completed: logData.completed,
+          completed_at: logData.completed_at,
+        }
+        setTodayLog(workoutLog)
         setState(logData.completed ? 'completed' : 'not-completed')
       } catch (error) {
         console.error('Error fetching workout:', error)
