@@ -41,7 +41,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
   const { user } = useAuth()
   const [state, setState] = useState<'input' | 'result'>('input')
   const [foodName, setFoodName] = useState('')
-  const [quantity, setQuantity] = useState(100)
+  const [quantity, setQuantity] = useState(0)
   const [unit, setUnit] = useState('grams (g)')
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +73,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
     'bowls': 'bowls',
     'tablespoons': 'tbsp',
     'teaspoons': 'tsp',
+    'plates': 'plates',
   }
 
   const handleAnalyze = async () => {
@@ -187,7 +188,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
 
   const resetForm = () => {
     setFoodName('')
-    setQuantity(100)
+    setQuantity(0)
     setUnit('grams (g)')
     setAnalyzing(false)
     setError(null)
@@ -251,6 +252,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
                     <option>pieces</option>
                     <option>cups</option>
                     <option>bowls</option>
+                    <option>plates</option>
                     <option>tablespoons</option>
                     <option>teaspoons</option>
                   </select>
