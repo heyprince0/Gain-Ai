@@ -431,23 +431,19 @@ export function ProfileContent() {
           </div>
 
           {weeklyPlan && weeklyPlan.days && (
-            <div className='mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide'>
+            <div className='mb-4 space-y-3'>
               {dayAbbreviations.map((dayAbbr, idx) => {
                 const dayNumber = idx + 1 // Mon=1, Tue=2, ..., Sun=7
                 const workoutDay = weeklyPlan.days.find((d: any) => d.day_number === dayNumber)
                 return (
                   <div
                     key={dayAbbr}
-                    className={`flex-shrink-0 px-2 py-2 rounded-xl text-xs text-center min-w-[48px] ${
-                      workoutDay
-                        ? 'bg-[#00ff88]/20 border border-[#00ff88]/50 text-[#00cc6a]'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
+                    className='flex items-center justify-between p-3 rounded-xl bg-muted/30'
                   >
-                    <div className='font-bold'>{dayAbbr}</div>
-                    <div className='text-[10px] mt-0.5'>
+                    <span className='text-sm font-medium text-foreground'>{dayAbbr}</span>
+                    <span className={`text-sm font-semibold ${workoutDay ? 'text-primary' : 'text-muted-foreground'}`}>
                       {workoutDay ? cleanName(workoutDay.focus) : 'Rest'}
-                    </div>
+                    </span>
                   </div>
                 )
               })}
