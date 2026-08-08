@@ -55,6 +55,15 @@ interface BodyScan {
   body_type?: string
 }
 
+interface DailyLog {
+  log_date: string
+  scan_count: number
+  total_calories: number
+  total_protein: number
+  total_carbs: number
+  total_fats: number
+}
+
 const formatIST = (dateString: string, timeOnly = false) => {
   // Supabase's `scanned_at` column is `timestamp` (no timezone). It was inserted
   // as a UTC instant, but Postgres strips the offset when storing it, so it comes
@@ -89,6 +98,7 @@ export function Dashboard() {
   const [weekScans, setWeekScans] = useState<FoodScan[]>([])
   const [weekCount, setWeekCount] = useState(0)
   const [weekLabel, setWeekLabel] = useState('')
+  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([])
   const [bodyScan, setBodyScan] = useState<BodyScan | null>(null)
   const [showPlanner, setShowPlanner] = useState(false)
   const [hasWorkoutPlan, setHasWorkoutPlan] = useState(false)
@@ -143,6 +153,14 @@ export function Dashboard() {
         .order('scanned_at', { ascending: false })
 
       if (foodData) setFoodScans(foodData)
+
+      const { data: dailyLogData } = await supabase
+        .from('daily_nutrition_log')
+        .select('log_date, scan_count, total_calories, total_protein, total_carbs, total_fats')
+        .eq('user_id', user.id)
+        .order('log_date', { ascending: false })
+
+      if (dailyLogData) setDailyLogs(dailyLogData)
 
       const istDateKey = (iso: string) =>
         new Intl.DateTimeFormat('en-CA', {
@@ -266,6 +284,17 @@ export function Dashboard() {
         if (foodError) console.error('Food scans error:', foodError)
         if (foodData) setFoodScans(foodData)
 
+        // food_scans only ever holds the last ~24h (older rows get archived +
+        // deleted hourly) — streak/weekly history now lives in this small
+        // permanent table instead.
+        const { data: dailyLogData, error: dailyLogError } = await supabase
+          .from('daily_nutrition_log')
+          .select('log_date, scan_count, total_calories, total_protein, total_carbs, total_fats')
+          .eq('user_id', user.id)
+          .order('log_date', { ascending: false })
+        if (dailyLogError) console.error('Daily nutrition log error:', dailyLogError)
+        if (dailyLogData) setDailyLogs(dailyLogData)
+
         const { data: bodyData, error: bodyError } = await supabase
           .from('body_scans')
           .select('*')
@@ -347,23 +376,21 @@ export function Dashboard() {
     .map((n: string) => n[0])
     .join('') || ''
 
-  const calculateStreak = (scans: FoodScan[]) => {
-    if (!scans || scans.length === 0) return 0
-    const istDateKey = (iso: string) => {
-      // Same fix as formatIST: scanned_at comes back from Supabase as a naive
-      // string (no "Z"), but it represents a UTC instant — tag it as UTC before
-      // converting to an IST calendar date, or the streak can land on the wrong day.
-      const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(iso)
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(new Date(hasTimezone ? iso : `${iso}Z`))
-    }
+  const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
 
-    const days = new Set(scans.map((s) => istDateKey(s.scanned_at)))
-    const todayKey = istDateKey(new Date().toISOString())
+    // Days with a scan, from the permanent log
+    const days = new Set(logs.filter((l) => l.scan_count > 0).map((l) => l.log_date))
+    // Today's log row may not exist yet (it only gets archived after 24h) —
+    // use the live todayScans check instead for today specifically.
+    if (hasScannedToday) days.add(todayKey)
+
+    if (days.size === 0) return 0
 
     let cursor = new Date(`${todayKey}T00:00:00+05:30`)
     if (!days.has(todayKey)) {
@@ -385,7 +412,7 @@ export function Dashboard() {
     return streak
   }
 
-  const streak = calculateStreak(foodScans)
+  const streak = calculateStreak(dailyLogs, todayScans.length > 0)
   const scannedToday = todayScans.length > 0
 
   return (
