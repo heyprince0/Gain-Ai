@@ -549,11 +549,10 @@ Health score rules for gym/fitness people (1–10 whole numbers):
               )}
               {!saved && (
                 <Button
-                  variant="outline"
-                  className="rounded-xl bg-green-100 text-green-800"
                   onClick={handleSave}
+                  className="rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold shadow-lg shadow-primary/25"
                 >
-                  Save to Dashboard
+                  Save
                 </Button>
               )}
               {saved && (
