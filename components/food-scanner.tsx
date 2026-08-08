@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Upload, Camera, ScanLine, X, Loader2 } from "lucide-react"
+import { Upload, Camera, ScanLine, X, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -521,6 +521,23 @@ Health score rules for gym/fitness people (1–10 whole numbers):
                   </div>
                 )
               })()}
+
+              {/* AI Summary — surfaces the ai_note the AI already generates */}
+              {analysis?.ai_note && (
+                <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
+                  <CardContent className="p-5">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">
+                        AI Summary
+                      </h3>
+                    </div>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {analysis.ai_note}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Individual Items */}
               {analysis?.items.map((food) => (
