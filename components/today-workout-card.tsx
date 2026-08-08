@@ -231,9 +231,6 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
                   {todayWorkout.exercises.length} exercises · {todayWorkout.duration_minutes} mins
                 </p>
               </div>
-              <Badge className="bg-primary/20 text-primary border-0 text-xs">
-                {cleanName(todayWorkout.focus)}
-              </Badge>
             </div>
 
             <Button
@@ -348,4 +345,3 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
 
   return null
 }
-
