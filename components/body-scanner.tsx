@@ -267,43 +267,31 @@ function BodyTypeCard({ bodyType, description, characteristics }: {
     return (
         <Card className={cn("overflow-hidden border-2", info?.border || "border-border/50")}>
             <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                    <div
-                        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl"
-                        style={{ background: colors.bg, color: colors.text }}
-                    >
-                        {info?.emoji || "🏷️"}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                            {info?.label || bodyType}
+                        </h3>
+                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Body Type
+                        </span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-bold tracking-tight text-foreground">
-                                {info?.label || bodyType}
-                            </h3>
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] font-medium uppercase tracking-wider"
-                                style={{ borderColor: colors.bg, color: colors.bg }}
-                            >
-                                {bodyType}
-                            </Badge>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                        {description}
+                    </p>
+                    {characteristics && characteristics.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                            {characteristics.map((char, i) => (
+                                <Badge
+                                    key={i}
+                                    variant="secondary"
+                                    className="text-[10px] font-medium"
+                                >
+                                    {char}
+                                </Badge>
+                            ))}
                         </div>
-                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                            {description}
-                        </p>
-                        {characteristics && characteristics.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                                {characteristics.map((char, i) => (
-                                    <Badge
-                                        key={i}
-                                        variant="secondary"
-                                        className="text-[10px] font-medium"
-                                    >
-                                        {char}
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
             </CardContent>
         </Card>
