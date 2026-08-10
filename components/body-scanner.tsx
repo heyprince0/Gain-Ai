@@ -28,7 +28,6 @@ import { cn } from "@/lib/utils"
 import { processImageFile } from "@/lib/image"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -422,38 +421,64 @@ export function BodyScanner() {
     const [saveMessage, setSaveMessage] = useState("")
     const [preparing, setPreparing] = useState(false)
     const [cameraInputKey, setCameraInputKey] = useState(0)
+    const [loadingProfile, setLoadingProfile] = useState(true)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // ── Session restore ──
+    // ── Fetch user profile to get gender ──
     useEffect(() => {
-        const fromCamera = sessionStorage.getItem("bodyScannerFromCamera")
-        if (fromCamera) {
-            const stored = sessionStorage.getItem("bodyScannerImage")
-            if (stored) setImage(stored)
-            sessionStorage.removeItem("bodyScannerFromCamera")
-        } else {
-            sessionStorage.removeItem("bodyScannerImage")
+        const fetchProfile = async () => {
+            if (!user) {
+                setLoadingProfile(false)
+                return
+            }
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('gender')
+                    .eq('id', user.id)
+                    .single()
+
+                if (error) {
+                    console.error('Error fetching profile gender:', error)
+                } else if (data?.gender) {
+                    // Map the profile gender string to our Gender type
+                    const genderLower = data.gender.toLowerCase()
+                    if (genderLower === 'male' || genderLower === 'female') {
+                        setGender(genderLower as Gender)
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load profile gender:', err)
+            } finally {
+                setLoadingProfile(false)
+            }
         }
-        // restore gender from session
-        const storedGender = sessionStorage.getItem("bodyScannerGender") as Gender | null
-        if (storedGender) setGender(storedGender)
+
+        fetchProfile()
+    }, [user])
+
+    // ── Session restore for image ──
+    useEffect(() => {
+        const fromCamera = sessionStorage.getItem('bodyScannerFromCamera')
+        if (fromCamera) {
+            const stored = sessionStorage.getItem('bodyScannerImage')
+            if (stored) setImage(stored)
+            sessionStorage.removeItem('bodyScannerFromCamera')
+        } else {
+            sessionStorage.removeItem('bodyScannerImage')
+        }
     }, [])
 
     const setImageWithStorage = useCallback((dataUrl: string | null) => {
         if (dataUrl) {
-            sessionStorage.setItem("bodyScannerImage", dataUrl)
-            sessionStorage.setItem("bodyScannerFromCamera", "true")
+            sessionStorage.setItem('bodyScannerImage', dataUrl)
+            sessionStorage.setItem('bodyScannerFromCamera', 'true')
         } else {
-            sessionStorage.removeItem("bodyScannerImage")
-            sessionStorage.removeItem("bodyScannerFromCamera")
+            sessionStorage.removeItem('bodyScannerImage')
+            sessionStorage.removeItem('bodyScannerFromCamera')
         }
         setImage(dataUrl)
-    }, [])
-
-    const setGenderWithStorage = useCallback((g: Gender) => {
-        setGender(g)
-        sessionStorage.setItem("bodyScannerGender", g)
     }, [])
 
     const colors = getBodyTypeColor(results?.body_type)
@@ -465,7 +490,7 @@ export function BodyScanner() {
             const input = e.target
             const file = input.files?.[0]
             if (!file) {
-                input.value = ""
+                input.value = ''
                 return
             }
             setError(null)
@@ -475,10 +500,10 @@ export function BodyScanner() {
                 const dataUrl = await processImageFile(file)
                 setImageWithStorage(dataUrl)
             } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not load the image")
+                setError(err instanceof Error ? err.message : 'Could not load the image')
             } finally {
                 setPreparing(false)
-                input.value = ""
+                input.value = ''
             }
         },
         [setImageWithStorage]
@@ -489,13 +514,13 @@ export function BodyScanner() {
         setScanning(true)
         setError(null)
         try {
-            const base64Image = image.split(",")[1]
+            const base64Image = image.split(',')[1]
 
-            const genderLabel = gender === "male" ? "male" : "female"
+            const genderLabel = gender === 'male' ? 'male' : 'female'
             const bodyTypesForGender =
-                gender === "male"
-                    ? "Ectomorph, Mesomorph, Endomorph, Athletic, Overweight, Fat, Obese, Skinny"
-                    : "Hourglass, Pear, Apple, Rectangle, Inverted Triangle"
+                gender === 'male'
+                    ? 'Ectomorph, Mesomorph, Endomorph, Athletic, Overweight, Fat, Obese, Skinny'
+                    : 'Hourglass, Pear, Apple, Rectangle, Inverted Triangle'
 
             const prompt = `Analyze this body image of a ${genderLabel} person and return ONLY valid JSON with no markdown, no extra text.
 
@@ -527,14 +552,14 @@ Important rules:
 
 Return ONLY the JSON object. No explanations, no markdown.`
 
-            const response = await fetch("/api/gemini", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [
                         {
                             parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                                { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
                                 { text: prompt },
                             ],
                         },
@@ -549,34 +574,34 @@ Return ONLY the JSON object. No explanations, no markdown.`
             }
 
             if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                throw new Error("No response from body analysis")
+                throw new Error('No response from body analysis')
             }
 
             const rawText = data.candidates[0].content.parts[0].text
-            const cleanText = rawText.replace(/```json|```/g, "").trim()
+            const cleanText = rawText.replace(/```json|```/g, '').trim()
             const parsed = JSON.parse(cleanText)
 
             // ensure fields exist
             const result: BodyResult = {
                 body_fat: parsed.body_fat ?? parsed.bodyFatPercent ?? 0,
                 bmi: parsed.bmi ?? 0,
-                body_type: parsed.body_type || "Unknown",
-                body_type_description: parsed.body_type_description || "",
+                body_type: parsed.body_type || 'Unknown',
+                body_type_description: parsed.body_type_description || '',
                 body_type_characteristics: parsed.body_type_characteristics || [],
                 muscle: parsed.muscle ?? 0,
                 fat: parsed.fat ?? 0,
                 bone: parsed.bone ?? 0,
                 water: parsed.water ?? 0,
                 areas_to_improve: parsed.areas_to_improve || [],
-                notes: parsed.notes || "",
+                notes: parsed.notes || '',
                 is_perfect: parsed.is_perfect ?? false,
             }
 
             setResults(result)
             setSaved(false)
-            setSaveMessage("")
+            setSaveMessage('')
         } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : "Failed to analyze body"
+            const errorMsg = error instanceof Error ? error.message : 'Failed to analyze body'
             setError(errorMsg)
             setResults(null)
         } finally {
@@ -592,18 +617,18 @@ Return ONLY the JSON object. No explanations, no markdown.`
             const insertObj: any = {
                 user_id: user.id,
                 body_fat: Number(results.body_fat ?? results.bodyFatPercent ?? 0) || 0,
-                body_type: results.body_type || "Unknown",
-                notes: results.notes || "",
+                body_type: results.body_type || 'Unknown',
+                notes: results.notes || '',
                 scanned_at: now,
             }
 
-            const { error } = await supabase.from("body_scans").insert(insertObj)
+            const { error } = await supabase.from('body_scans').insert(insertObj)
             if (error) throw error
-            setSaveMessage("✅ Saved to Dashboard!")
+            setSaveMessage('✅ Saved to Dashboard!')
             router.refresh()
         } catch (err) {
             console.error(err)
-            setSaveMessage("Failed to save")
+            setSaveMessage('Failed to save')
             setSaved(false)
         }
     }
@@ -613,9 +638,18 @@ Return ONLY the JSON object. No explanations, no markdown.`
         setResults(null)
         setError(null)
         setSaved(false)
-        setSaveMessage("")
-        if (fileInputRef.current) fileInputRef.current.value = ""
+        setSaveMessage('')
+        if (fileInputRef.current) fileInputRef.current.value = ''
     }, [setImageWithStorage])
+
+    // If still loading profile, show a spinner (optional – you can also just render with default "male")
+    if (loadingProfile) {
+        return (
+            <div className="flex min-h-[300px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
+    }
 
     // ─── Render ──────────────────────────────────────────────────────────
 
@@ -646,39 +680,13 @@ Return ONLY the JSON object. No explanations, no markdown.`
                                 </div>
                                 <div className="text-center">
                                     <p className="text-sm font-semibold text-foreground">
-                                        {preparing ? "Preparing your photo…" : "Upload body photo"}
+                                        {preparing ? 'Preparing your photo…' : 'Upload body photo'}
                                     </p>
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         {preparing
-                                            ? "This takes a couple of seconds for big photos"
-                                            : "Full-body photo for best results"}
+                                            ? 'This takes a couple of seconds for big photos'
+                                            : 'Full-body photo for best results'}
                                     </p>
-                                </div>
-
-                                {/* Gender Toggle */}
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-medium text-muted-foreground">I am</span>
-                                    <ToggleGroup
-                                        type="single"
-                                        value={gender}
-                                        onValueChange={(val) => {
-                                            if (val === "male" || val === "female") setGenderWithStorage(val)
-                                        }}
-                                        className="gap-1"
-                                    >
-                                        <ToggleGroupItem
-                                            value="male"
-                                            className="h-7 px-3 text-xs data-[state=on]:bg-blue-500 data-[state=on]:text-white"
-                                        >
-                                            Male
-                                        </ToggleGroupItem>
-                                        <ToggleGroupItem
-                                            value="female"
-                                            className="h-7 px-3 text-xs data-[state=on]:bg-pink-500 data-[state=on]:text-white"
-                                        >
-                                            Female
-                                        </ToggleGroupItem>
-                                    </ToggleGroup>
                                 </div>
 
                                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -711,7 +719,7 @@ Return ONLY the JSON object. No explanations, no markdown.`
                                                     .then((dataUrl) => setImageWithStorage(dataUrl))
                                                     .catch((err) =>
                                                         setError(
-                                                            err instanceof Error ? err.message : "Could not load the image"
+                                                            err instanceof Error ? err.message : 'Could not load the image'
                                                         )
                                                     )
                                                     .finally(() => setPreparing(false))
@@ -799,10 +807,10 @@ Return ONLY the JSON object. No explanations, no markdown.`
                                     <p className="mb-3 text-sm font-semibold text-foreground">Body Composition</p>
                                     <div className="space-y-2">
                                         {[
-                                            { label: "Muscle", value: results.muscle ?? 0, icon: Dumbbell },
-                                            { label: "Fat", value: results.fat ?? 0, icon: TrendingDown },
-                                            { label: "Bone", value: results.bone ?? 0, icon: Bone },
-                                            { label: "Water", value: results.water ?? 0, icon: Droplet },
+                                            { label: 'Muscle', value: results.muscle ?? 0, icon: Dumbbell },
+                                            { label: 'Fat', value: results.fat ?? 0, icon: TrendingDown },
+                                            { label: 'Bone', value: results.bone ?? 0, icon: Bone },
+                                            { label: 'Water', value: results.water ?? 0, icon: Droplet },
                                         ].map((item) => (
                                             <div key={item.label} className="flex items-center justify-between">
                                                 <span className="flex items-center gap-2 text-sm text-muted-foreground">
