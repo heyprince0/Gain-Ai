@@ -12,30 +12,275 @@ interface Props {
   userId: string
   existingBodyFat?: number
   onComplete: () => void
-  onClose: () => void  // <-- added
 }
 
-// ... rest of the component unchanged until the return ...
+interface WorkoutDay {
+  day_number: number
+  day_name: string
+  focus: string
+  duration_minutes: number
+  exercises: Array<{
+    name: string
+    sets: number
+    reps: string
+    rest_seconds: number
+    notes: string
+  }>
+  warm_up: string
+  cool_down: string
+}
 
-export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClose }: Props) {
-  // ... all existing state and hooks ...
+interface WorkoutPlan {
+  plan_name: string
+  goal_summary: string
+  days: WorkoutDay[]
+  rest_days: string[]
+  tips: string[]
+}
 
-  // ... all existing functions (handleGeneratePlan, etc.) ...
+interface FormData {
+  bodyFatPercent: number | null
+  fitnessGoal: string | null
+  secondaryGoal: string[]
+  experienceLevel: string | null
+  daysPerWeek: number | null
+  injuryInfo: string
+  lifestyle: string | null
+  athleteType: string | null
+}
 
-  // In the return, we add the close button at the top of the form container
+export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete }: Props) {
+  const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [gender, setGender] = useState<string | null>(null)
+  const [formData, setFormData] = useState<FormData>({
+    bodyFatPercent: existingBodyFat ?? null,
+    fitnessGoal: null,
+    secondaryGoal: [],
+    experienceLevel: null,
+    daysPerWeek: null,
+    injuryInfo: '',
+    lifestyle: null,
+    athleteType: null,
+  })
+
+  // Fetch gender early so Step 3 / Step 4 can show gender-specific options
+  useEffect(() => {
+    const fetchGender = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('gender')
+        .eq('id', userId)
+        .single()
+
+      setGender(data?.gender ?? null)
+    }
+
+    fetchGender()
+  }, [userId])
+
+  const updateFormData = (updates: Partial<FormData>) => {
+    setFormData((prev) => ({ ...prev, ...updates }))
+  }
+
+  const handleNext = () => {
+    if (currentStep < 8) setCurrentStep(currentStep + 1)
+  }
+
+  const handleBack = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
+  }
+
+  const handleGeneratePlan = async () => {
+  setLoading(true)
+  setError(null)
+
+  try {
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('name, age, weight, height, gender')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) throw new Error('Failed to fetch profile')
+
+    const { age, weight, height, gender } = profile
+
+    // Upsert workout_profiles
+    const { error: upsertError } = await supabase
+      .from('workout_profiles')
+      .upsert(
+        {
+          user_id: userId,
+          body_fat_percent: formData.bodyFatPercent,
+          fitness_goal: formData.fitnessGoal,
+          secondary_goal: formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : null,
+          experience_level: formData.experienceLevel,
+          days_per_week: formData.daysPerWeek,
+          injury_info: formData.injuryInfo || null,
+          lifestyle: formData.lifestyle,
+          athlete_type: formData.athleteType,
+        },
+        { onConflict: 'user_id' }
+      )
+
+    if (upsertError) throw new Error('Failed to save workout profile')
+
+    // Build Gemini prompt
+    const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
+
+User details: age ${age}, gender ${gender || 'not specified'}, weight ${weight}kg, height ${height}cm, body fat ${formData.bodyFatPercent}%, main goal: ${formData.fitnessGoal}, secondary goals: ${formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : 'none'}, experience: ${formData.experienceLevel}, training days per week: ${formData.daysPerWeek}, lifestyle: ${formData.lifestyle}, training style: ${formData.athleteType}, injuries or limitations: ${formData.injuryInfo || 'none'}.
+
+Important: Design the workout plan specifically following how a ${formData.athleteType} trains — the exercise selection, rep ranges, rest periods, and weekly structure should reflect this athlete type.
+
+Important scheduling rules:
+- Spread workout days evenly across the week. Never put all rest days together at the end.
+- For 3 days per week use: Monday, Wednesday, Friday. Rest on Tuesday, Thursday, Saturday, Sunday.
+- For 4 days per week use: Monday, Tuesday, Thursday, Friday. Rest on Wednesday, Saturday, Sunday.
+- For 5 days per week use: Monday, Tuesday, Wednesday, Friday, Saturday. Rest on Thursday, Sunday.
+- For 6 days per week use: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday. Rest on Sunday only.
+- Assign day_number strictly as: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday.
+- Never assign two rest days between two workout days unnecessarily.
+- The number of days in the "days" array must exactly match the days_per_week number the user selected. No more, no less.
+
+Return exactly this JSON structure and nothing else:
+{
+  "plan_name": "string",
+  "goal_summary": "string, maximum 2 sentences explaining the approach",
+  "days": [
+    {
+      "day_number": 1,
+      "day_name": "string e.g. Monday - Push Day",
+      "focus": "string, a short 2-3 word display label summarizing the day e.g. 'Push Day', 'Leg Day', 'Pull & Core'. Keep it under 20 characters. The actual exercises will have full detail.",
+      "duration_minutes": number,
+      "exercises": [
+        {
+          "name": "string",
+          "sets": number,
+          "reps": "string e.g. 8-12 or 45 seconds",
+          "rest_seconds": number,
+          "notes": "string, one short form tip"
+        }
+      ],
+      "warm_up": "string, describe warm up in one sentence",
+      "cool_down": "string, describe cool down in one sentence"
+    }
+  ],
+  "rest_days": ["string e.g. Thursday - Rest and Recovery"],
+  "tips": ["string", "string", "string"]
+}`
+
+    // Call Gemini API directly — only one clean call
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 12000 },
+      }),
+    })
+
+    if (!response.ok) throw new Error('Failed to call Gemini API')
+
+    const result = await response.json()
+
+    if (!result.candidates || !result.candidates[0]) {
+      throw new Error('Gemini returned empty response')
+    }
+
+    let rawText = result.candidates[0].content.parts[0].text
+
+    // Clean any markdown fences
+    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim()
+
+    // Extract only the JSON part safely
+    const start = rawText.indexOf('{')
+    const end = rawText.lastIndexOf('}')
+    if (start === -1 || end === -1) throw new Error('Invalid JSON from Gemini')
+    const cleanJson = rawText.substring(start, end + 1)
+
+    const plan = JSON.parse(cleanJson) as WorkoutPlan
+
+    // Insert workout plan
+    const { data: planData, error: planError } = await supabase
+      .from('workout_plans')
+      .insert({ user_id: userId, plan })
+      .select('id')
+      .single()
+
+    if (planError || !planData) throw new Error('Failed to save workout plan')
+
+    const planId = planData.id
+
+    // Create workout logs
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+
+    for (const day of plan.days) {
+      const dayNumber = day.day_number
+      const daysUntilTarget = ((dayNumber === 0 ? 7 : dayNumber) - dayOfWeek + 7) % 7
+      const workoutDate = new Date(today)
+      if (daysUntilTarget === 0 && dayOfWeek !== (dayNumber === 0 ? 7 : dayNumber)) {
+        workoutDate.setDate(workoutDate.getDate() + 7)
+      } else {
+        workoutDate.setDate(workoutDate.getDate() + daysUntilTarget)
+      }
+
+      const dateStr = workoutDate.toISOString().split('T')[0]
+
+      await supabase.from('workout_logs').insert({
+        user_id: userId,
+        plan_id: planId,
+        workout_date: dateStr,
+        day_name: day.day_name,
+        completed: false,
+      })
+    }
+
+    onComplete()
+
+  } catch (err) {
+    console.error('Error generating plan:', err)
+    setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    setLoading(false)
+  }
+}
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-foreground font-semibold">AI is building your personalized plan...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 mb-4">
+          <p className="text-destructive text-sm font-medium">{error}</p>
+        </div>
+        <Button
+          onClick={() => {
+            setError(null)
+            setLoading(false)
+          }}
+          className="w-full bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold"
+        >
+          Retry
+        </Button>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6 relative">  {/* added relative */}
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-full p-2 hover:bg-muted/50 transition-colors"
-        aria-label="Close form"
-      >
-        <X className="h-5 w-5 text-foreground/70" />
-      </button>
-
-      {/* existing content: header, progress, steps, navigation ... */}
+    <div className="p-6">
+      {/* Header with step title and progress */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">
@@ -46,18 +291,503 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClos
         <Progress value={(currentStep / 8) * 100} className="h-2" />
       </div>
 
-      {/* Step content (unchanged) */}
+      {/* Step content */}
       <div className="mb-8">
-        {/* ... all step components ... */}
+        {currentStep === 1 && (
+          <Step1Gender
+            bodyFatPercent={formData.bodyFatPercent}
+            onBodyFatChange={(bodyFatPercent) => updateFormData({ bodyFatPercent })}
+          />
+        )}
+        {currentStep === 2 && (
+          <Step2Goal
+            selected={formData.fitnessGoal}
+            onChange={(fitnessGoal) => updateFormData({ fitnessGoal })}
+          />
+        )}
+        {currentStep === 3 && (
+          <Step3TrainingStyle
+            selected={formData.athleteType}
+            onChange={(athleteType) => updateFormData({ athleteType })}
+            gender={gender}
+          />
+        )}
+        {currentStep === 4 && (
+          <Step4SecondaryGoal
+            selected={formData.secondaryGoal}
+            onChange={(secondaryGoal) => updateFormData({ secondaryGoal })}
+            onSkip={() => handleNext()}
+            gender={gender}
+          />
+        )}
+        {currentStep === 5 && (
+          <Step5Experience
+            selected={formData.experienceLevel}
+            onChange={(experienceLevel) => updateFormData({ experienceLevel })}
+          />
+        )}
+        {currentStep === 6 && (
+          <Step6WorkoutDays
+            selected={formData.daysPerWeek}
+            onChange={(daysPerWeek) => updateFormData({ daysPerWeek })}
+          />
+        )}
+        {currentStep === 7 && (
+          <Step7Injuries
+            value={formData.injuryInfo}
+            onChange={(injuryInfo) => updateFormData({ injuryInfo })}
+            onSkip={() => handleNext()}
+          />
+        )}
+        {currentStep === 8 && (
+          <Step8Lifestyle
+            selected={formData.lifestyle}
+            onChange={(lifestyle) => updateFormData({ lifestyle })}
+          />
+        )}
       </div>
 
-      {/* Navigation buttons (unchanged) */}
+      {/* Navigation buttons */}
       <div className="flex gap-3">
-        {/* ... */}
+        {currentStep > 1 && (
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            className="flex-1 border-border bg-muted text-foreground hover:bg-muted/80"
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
+        {currentStep < 8 ? (
+          <Button
+            onClick={handleNext}
+            disabled={!isStepValid(currentStep, formData)}
+            className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50"
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        ) : (
+          <Button
+            onClick={handleGeneratePlan}
+            disabled={!isStepValid(8, formData)}
+            className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50 py-3"
+          >
+            Generate My Workout Plan ✨
+          </Button>
+        )}
       </div>
     </div>
   )
 }
 
-// All the step components (Step1Gender, Step2Goal, etc.) remain exactly as they were.
-// The file ends with the helper functions getStepTitle and isStepValid.
+function Step1Gender({
+  bodyFatPercent,
+  onBodyFatChange,
+}: {
+  bodyFatPercent: number | null
+  onBodyFatChange: (value: number | null) => void
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-2">
+        Body Fat % <span className="text-muted-foreground">(optional)</span>
+      </label>
+      <input
+        type="number"
+        value={bodyFatPercent ?? ''}
+        onChange={(e) => onBodyFatChange(e.target.value ? parseFloat(e.target.value) : null)}
+        placeholder="e.g. 20"
+        className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground"
+      />
+    </div>
+  )
+}
+
+function Step2Goal({
+  selected,
+  onChange,
+}: {
+  selected: string | null
+  onChange: (goal: string) => void
+}) {
+  const goals = [
+    { id: 'Fat Loss', emoji: '🔥', desc: 'Burn fat and get lean' },
+    { id: 'Muscle Gain', emoji: '💪', desc: 'Build size and mass' },
+    { id: 'Strength Building', emoji: '⚡', desc: 'Get stronger and powerful' },
+    { id: 'Improve Cardio', emoji: '🏃', desc: 'Boost stamina and endurance' },
+    { id: 'General Fitness', emoji: '⭐', desc: 'Stay healthy and active' },
+  ]
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Main Goal</label>
+      <div className="grid grid-cols-1 gap-3">
+        {goals.map(({ id, emoji, desc }) => (
+          <button
+            key={id}
+            onClick={() => onChange(id)}
+            className={`p-4 rounded-xl border-2 text-left transition ${
+              selected === id
+                ? 'border-[#00ff88] bg-[#00ff88]/10'
+                : 'border-border bg-card hover:border-border/80'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{emoji}</span>
+              <div>
+                <p className={`font-semibold ${selected === id ? 'text-foreground' : 'text-foreground'}`}>
+                  {id}
+                </p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Step3TrainingStyle({
+  selected,
+  onChange,
+  gender,
+}: {
+  selected: string | null
+  onChange: (athleteType: string) => void
+  gender: string | null
+}) {
+  const isFemale = gender === 'Female'
+
+  const athleteTypes = isFemale
+    ? [
+        {
+          name: "🌸 Women's Fitness",
+          description: 'Designed for women focusing on strength, toning, fat loss, and overall fitness. Build lean muscle while improving confidence, endurance, and mobility.',
+        },
+        {
+          name: '🍑 Glute Builder',
+          description: 'Prioritize glute growth and lower body development with progressive strength training for stronger legs, hips, and core.',
+        },
+        {
+          name: '🔥 Lean & Toned',
+          description: 'Burn body fat while building lean muscle for a strong, athletic, and toned physique.',
+        },
+        {
+          name: "💪 Women's Strength",
+          description: 'Increase full-body strength with resistance training while improving posture, bone health, and daily performance.',
+        },
+      ]
+    : [
+        {
+          name: 'Hybrid Athlete',
+          description: 'A balanced mix of strength training and cardio. Build muscle while improving endurance and overall athleticism.',
+        },
+        {
+          name: 'Bodybuilder',
+          description: 'Focus on muscle hypertrophy and aesthetics. High volume training to maximize muscle size and definition.',
+        },
+        {
+          name: 'Calisthenics Athlete',
+          description: 'Master your bodyweight. Build strength, control, and muscle using only bodyweight movements and minimal equipment.',
+        },
+        {
+          name: 'Endurance',
+          description: 'Improve cardiovascular fitness, stamina, and recovery to perform better in longer workouts, running, cycling, and sports.',
+        },
+      ]
+
+  return (
+    <div className="space-y-4">
+      <label className="block text-sm font-medium text-foreground mb-3">
+        How do you want to train?
+      </label>
+      <div className="space-y-3">
+        {athleteTypes.map(({ name, description }) => (
+          <button
+            key={name}
+            onClick={() => onChange(name)}
+            className={`w-full p-4 rounded-xl border-2 text-left transition ${
+              selected === name
+                ? 'border-[#00ff88] bg-[#00ff88]/10'
+                : 'border-border bg-card hover:border-border/80'
+            }`}
+          >
+            <p className={`font-semibold mb-1 ${
+              selected === name ? 'text-[#00ff88]' : 'text-foreground'
+            }`}>
+              {name}
+            </p>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Step4SecondaryGoal({
+  selected,
+  onChange,
+  onSkip,
+  gender,
+}: {
+  selected: string[]
+  onChange: (goals: string[]) => void
+  onSkip: () => void
+  gender: string | null
+}) {
+  const isFemale = gender === 'Female'
+
+  const goals = isFemale
+    ? [
+        { id: 'Lose Fat' },
+        { id: 'Build Glutes' },
+        { id: 'Tone Body' },
+        { id: 'Gain Muscle' },
+        { id: 'Improve Strength' },
+        { id: 'Improve Fitness' },
+      ]
+    : [
+        { id: 'Six Pack' },
+        { id: 'Bigger Arms' },
+        { id: 'Wider Shoulders' },
+        { id: 'Improve Cardio' },
+        { id: 'Wider neck' },
+        { id: 'Better Chest' },
+        { id: 'Leg Strength' },
+      ]
+
+  const toggleGoal = (id: string) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter((g) => g !== id))
+    } else if (selected.length < 3) {
+      onChange([...selected, id])
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">Pick up to 3</p>
+        <button
+          onClick={onSkip}
+          className="text-muted-foreground text-sm font-medium hover:text-foreground"
+        >
+          Skip →
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {goals.map(({ id }) => {
+          const isSelected = selected.includes(id)
+          const isMaxed = !isSelected && selected.length >= 3
+          return (
+            <button
+              key={id}
+              onClick={() => toggleGoal(id)}
+              disabled={isMaxed}
+              className={`p-4 rounded-xl border-2 text-center transition ${
+                isSelected
+                  ? 'border-[#00ff88] bg-[#00ff88]/10'
+                  : 'border-border bg-card hover:border-border/80'
+              } ${isMaxed ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {id}
+              </p>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function Step5Experience({
+  selected,
+  onChange,
+}: {
+  selected: string | null
+  onChange: (level: string) => void
+}) {
+  const levels = [
+    { id: 'Beginner', subtitle: 'Less than 6 months' },
+    { id: 'Intermediate', subtitle: '6 months to 2 years' },
+    { id: 'Advanced', subtitle: '2+ years of training' },
+  ]
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Experience</label>
+      <div className="grid grid-cols-1 gap-3">
+        {levels.map(({ id, subtitle }) => (
+          <button
+            key={id}
+            onClick={() => onChange(id)}
+            className={`p-4 rounded-xl border-2 text-left transition ${
+              selected === id
+                ? 'border-[#00ff88] bg-[#00ff88]/10'
+                : 'border-border bg-card hover:border-border/80'
+            }`}
+          >
+            <p className={`font-semibold text-foreground`}>
+              {id}
+            </p>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Step6WorkoutDays({
+  selected,
+  onChange,
+}: {
+  selected: number | null
+  onChange: (days: number) => void
+}) {
+  const days = [3, 4, 5, 6]
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-3">
+        How many days per week can you train?
+      </label>
+      <div className="grid grid-cols-4 gap-3">
+        {days.map((day) => (
+          <button
+            key={day}
+            onClick={() => onChange(day)}
+            className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-1 ${
+              selected === day
+                ? 'bg-[#00ff88] text-black'
+                : 'bg-card border border-border text-foreground hover:border-border/80'
+            }`}
+          >
+            <span className="text-lg font-bold">{day}</span>
+            <span className="text-xs">days</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Step7Injuries({
+  value,
+  onChange,
+  onSkip,
+}: {
+  value: string
+  onChange: (value: string) => void
+  onSkip: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Any Injuries?</label>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Describe any injuries or pain areas e.g. lower back pain, bad knees... (optional)"
+          className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground resize-none"
+          rows={4}
+        />
+      </div>
+      <div className="flex justify-end">
+        <button
+          onClick={onSkip}
+          className="text-muted-foreground text-sm font-medium hover:text-foreground"
+        >
+          Skip →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Step8Lifestyle({
+  selected,
+  onChange,
+}: {
+  selected: string | null
+  onChange: (lifestyle: string) => void
+}) {
+  const lifestyles = [
+    { id: 'Desk Job', emoji: '🪑', subtitle: 'Sitting most of the day' },
+    { id: 'Moderate Movement', emoji: '🚶', subtitle: 'Some walking daily' },
+    { id: 'Physically Active', emoji: '⚒️', subtitle: 'Manual work or sports' },
+    { id: 'Young Teen', emoji: '🎒', subtitle: 'School student, still growing' },
+  ]
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-3">Your Lifestyle</label>
+      <div className="grid grid-cols-1 gap-3">
+        {lifestyles.map(({ id, emoji, subtitle }) => (
+          <button
+            key={id}
+            onClick={() => onChange(id)}
+            className={`p-4 rounded-xl border-2 text-left transition ${
+              selected === id
+                ? 'border-[#00ff88] bg-[#00ff88]/10'
+                : 'border-border bg-card hover:border-border/80'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{emoji}</span>
+              <div>
+                <p className={`font-semibold text-foreground`}>
+                  {id}
+                </p>
+                <p className="text-xs text-muted-foreground">{subtitle}</p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function getStepTitle(step: number): string {
+  const titles: Record<number, string> = {
+    1: 'Your Body',
+    2: 'Your Main Goal',
+    3: 'Training Style',
+    4: 'Secondary Goal (Optional)',
+    5: 'Your Experience',
+    6: 'Workout Days',
+    7: 'Any Injuries?',
+    8: 'Your Lifestyle',
+  }
+  return titles[step] || ''
+}
+
+function isStepValid(step: number, formData: FormData): boolean {
+  switch (step) {
+    case 1:
+      return true // Body Fat is optional
+    case 2:
+      return formData.fitnessGoal !== null
+    case 3:
+      return formData.athleteType !== null
+    case 4:
+      return true // Optional step
+    case 5:
+      return formData.experienceLevel !== null
+    case 6:
+      return formData.daysPerWeek !== null
+    case 7:
+      return true // Optional step
+    case 8:
+      return formData.lifestyle !== null
+    default:
+      return false
+  }
+}
