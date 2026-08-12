@@ -56,8 +56,6 @@ interface BodyResult {
     }[]
 }
 
-type Gender = "male" | "female"
-
 // ─── Body Type Data ──────────────────────────────────────────────────────
 
 const BODY_TYPE_INFO: Record<
@@ -412,7 +410,6 @@ export function BodyScanner() {
     const router = useRouter()
 
     // ── State ──
-    const [gender, setGender] = useState<Gender>("male")
     const [image, setImage] = useState<string | null>(null)
     const [scanning, setScanning] = useState(false)
     const [results, setResults] = useState<BodyResult | null>(null)
@@ -421,42 +418,8 @@ export function BodyScanner() {
     const [saveMessage, setSaveMessage] = useState("")
     const [preparing, setPreparing] = useState(false)
     const [cameraInputKey, setCameraInputKey] = useState(0)
-    const [loadingProfile, setLoadingProfile] = useState(true)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
-
-    // ── Fetch user profile to get gender ──
-    useEffect(() => {
-        const fetchProfile = async () => {
-            if (!user) {
-                setLoadingProfile(false)
-                return
-            }
-            try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('gender')
-                    .eq('id', user.id)
-                    .single()
-
-                if (error) {
-                    console.error('Error fetching profile gender:', error)
-                } else if (data?.gender) {
-                    // Map the profile gender string to our Gender type
-                    const genderLower = data.gender.toLowerCase()
-                    if (genderLower === 'male' || genderLower === 'female') {
-                        setGender(genderLower as Gender)
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to load profile gender:', err)
-            } finally {
-                setLoadingProfile(false)
-            }
-        }
-
-        fetchProfile()
-    }, [user])
 
     // ── Session restore for image ──
     useEffect(() => {
@@ -516,19 +479,16 @@ export function BodyScanner() {
         try {
             const base64Image = image.split(',')[1]
 
-            const genderLabel = gender === 'male' ? 'male' : 'female'
-            const bodyTypesForGender =
-                gender === 'male'
-                    ? 'Ectomorph, Mesomorph, Endomorph, Athletic, Overweight, Fat, Obese, Skinny'
-                    : 'Hourglass, Pear, Apple, Rectangle, Inverted Triangle'
+            const prompt = `Analyze this body image. First, determine if the person is male or female. Then, based on that gender, classify the body type from the appropriate list:
 
-            const prompt = `Analyze this body image of a ${genderLabel} person and return ONLY valid JSON with no markdown, no extra text.
+For males: Ectomorph, Mesomorph, Endomorph, Athletic, Overweight, Fat, Obese, Skinny.
+For females: Hourglass, Pear, Apple, Rectangle, Inverted Triangle.
 
-The JSON must have this exact structure:
+Return ONLY valid JSON with no markdown, no extra text. The JSON must have this exact structure:
 {
   "body_fat": <number 0-100>,
   "bmi": <number 10-50>,
-  "body_type": "<one of: ${bodyTypesForGender}>",
+  "body_type": "<one of the types from the appropriate gender list>",
   "body_type_description": "<one-sentence description of the body type>",
   "body_type_characteristics": ["<char 1>", "<char 2>", "<char 3>"],
   "muscle": <number 0-100>,
@@ -541,7 +501,7 @@ The JSON must have this exact structure:
 }
 
 Important rules:
-- For ${genderLabel} body types, use the appropriate ${genderLabel} categories.
+- Determine the gender from the image and choose the body type from the correct list.
 - If the person is highly muscular and lean with low body fat, set is_perfect = true and make areas_to_improve a short array (1-2 items max) with general maintenance advice.
 - If the person is not in great shape, set is_perfect = false and provide 3-4 specific, actionable areas to improve.
 - For "Skinny" or "Ectomorph", areas should focus on muscle building.
@@ -607,7 +567,7 @@ Return ONLY the JSON object. No explanations, no markdown.`
         } finally {
             setScanning(false)
         }
-    }, [image, gender])
+    }, [image])
 
     const handleSave = async () => {
         if (!user || !results) return
@@ -641,15 +601,6 @@ Return ONLY the JSON object. No explanations, no markdown.`
         setSaveMessage('')
         if (fileInputRef.current) fileInputRef.current.value = ''
     }, [setImageWithStorage])
-
-    // If still loading profile, show a spinner (optional – you can also just render with default "male")
-    if (loadingProfile) {
-        return (
-            <div className="flex min-h-[300px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        )
-    }
 
     // ─── Render ──────────────────────────────────────────────────────────
 
