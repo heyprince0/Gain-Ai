@@ -376,6 +376,7 @@ export function Dashboard() {
     .map((n: string) => n[0])
     .join('') || ''
 
+  // FIXED: streak calculation using UTC-based day stepping
   const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
     const todayKey = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -392,22 +393,27 @@ export function Dashboard() {
 
     if (days.size === 0) return 0
 
+    // Start cursor at today's IST midnight (UTC timestamp)
     let cursor = new Date(`${todayKey}T00:00:00+05:30`)
+    // If today is not scanned, start checking from yesterday
     if (!days.has(todayKey)) {
-      cursor.setDate(cursor.getDate() - 1)
+      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
 
     let streak = 0
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+
     while (true) {
-      const key = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(cursor)
+      const key = formatter.format(cursor)
       if (!days.has(key)) break
       streak += 1
-      cursor.setDate(cursor.getDate() - 1)
+      // Move back exactly 24 hours in UTC (no local timezone interference)
+      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
     return streak
   }
