@@ -12,19 +12,19 @@ import { supabase } from '@/lib/supabase'
 
 export default function GymOwnerLogin() {
   const router = useRouter()
-  // ⭐ Default to sign‑up
   const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  // ⭐ Use absolute URL for Supabase redirects
   const redirectUrl =
     typeof window !== 'undefined'
       ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/gym-owner/login`
       : undefined
 
-  // ⭐ Use full page navigation to avoid React router interference
+  // ⭐ Full‑page redirect to gym setup or dashboard
   function redirectToOwnerDestination(userId: string) {
     supabase
       .from('gyms')
@@ -39,25 +39,32 @@ export default function GymOwnerLogin() {
           return
         }
         const destination = data ? '/gym-owner/dashboard' : '/gym-owner/setup'
-        window.location.replace(destination)   // ← full page redirect
+        console.log(`[v0] Redirecting to ${destination}`)
+        window.location.replace(destination)
       })
   }
 
-  // Check existing session on mount
+  // ⭐ Check existing session on mount and after auth changes
   useEffect(() => {
     let active = true
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('[v0] Session error:', error)
+
+    const checkSession = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error('[v0] Session error:', sessionError)
         return
       }
       if (active && session) {
+        console.log('[v0] Existing session found, redirecting...')
         redirectToOwnerDestination(session.user.id)
       }
-    })
+    }
+
+    checkSession()
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active && session) {
+        console.log('[v0] Auth state changed, redirecting...')
         redirectToOwnerDestination(session.user.id)
       }
     })
@@ -107,9 +114,8 @@ export default function GymOwnerLogin() {
       return
     }
 
-    // ⭐ Use the full‑page redirect
     redirectToOwnerDestination(userId)
-    // no need to setBusy false here because redirect will replace the page
+    // no need to set busy false – the page will reload
   }
 
   async function signInWithGoogle() {
@@ -120,6 +126,7 @@ export default function GymOwnerLogin() {
       options: { redirectTo: redirectUrl },
     })
     if (error) {
+      console.error('[v0] Google OAuth error:', error)
       setError(error.message)
       setBusy(false)
     }
