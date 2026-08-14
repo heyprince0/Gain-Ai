@@ -9,8 +9,8 @@ import { ProfileSetup } from './profile-setup'
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  // Owner routes own their session and redirect decisions. Do not initialize
-  // member profile checks while an owner page is being rendered.
+  // ⭐ Owner routes own their session and redirect decisions.
+  // Do not initialize member profile checks while an owner page is being rendered.
   if (pathname?.startsWith('/gym-owner')) {
     return <>{children}</>
   }
@@ -27,7 +27,9 @@ function MemberAuthLayout({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === '/'
 
   useEffect(() => {
-    if (!loading && user && isHomePage) router.replace('/dashboard')
+    if (!loading && user && isHomePage) {
+      router.replace('/dashboard')
+    }
   }, [user, loading, isHomePage, router])
 
   if (loading) {
