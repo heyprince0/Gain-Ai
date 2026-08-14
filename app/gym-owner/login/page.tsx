@@ -18,11 +18,10 @@ export default function GymOwnerLogin() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  // Check if user is already logged in and has a gym
+  // Check session and gym existence
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
-        // Check if user has a gym
         const { data: gymData } = await supabase
           .from('gyms')
           .select('id')
@@ -50,7 +49,8 @@ export default function GymOwnerLogin() {
             email,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/gym-owner/dashboard`,
+              // 🔁 Redirect to login page after email confirmation
+              emailRedirectTo: `${window.location.origin}/gym-owner/login`,
             },
           })
 
@@ -60,14 +60,12 @@ export default function GymOwnerLogin() {
       return
     }
 
-    // For sign-up, if no session, user needs to confirm email
     if (mode === 'signup' && !result.data.session) {
       setError('Check your email to confirm your account.')
       setBusy(false)
       return
     }
 
-    // Get the user ID
     const userId = result.data.user?.id || result.data.session?.user.id
     if (!userId) {
       setError('Unable to get user information.')
@@ -75,7 +73,6 @@ export default function GymOwnerLogin() {
       return
     }
 
-    // Check if user has a gym
     const { data: gymData } = await supabase
       .from('gyms')
       .select('id')
@@ -98,7 +95,8 @@ export default function GymOwnerLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/gym-owner/dashboard`,
+        // 🔁 Redirect to login page after OAuth
+        redirectTo: `${window.location.origin}/gym-owner/login`,
       },
     })
 
@@ -106,8 +104,6 @@ export default function GymOwnerLogin() {
       setError(error.message)
       setBusy(false)
     }
-    // Note: For OAuth, the redirect happens automatically,
-    // and the check will run in the useEffect on the callback page.
   }
 
   return (
