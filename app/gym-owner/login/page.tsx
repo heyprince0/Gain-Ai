@@ -12,7 +12,8 @@ import { supabase } from '@/lib/supabase'
 
 export default function GymOwnerLogin() {
   const router = useRouter()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  // ⭐ Default to 'signup' mode
+  const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -39,20 +40,30 @@ export default function GymOwnerLogin() {
     router.replace(gymData ? '/gym-owner/dashboard' : '/gym-owner/setup')
   }
 
-  // Handles an existing session and sessions created by the email/OAuth callback.
+  // ⭐ Check existing session and route properly
   useEffect(() => {
     let active = true
-    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+
+    const checkSession = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) {
         console.error('[v0] Owner session lookup failed:', sessionError)
         if (active) setError('We could not restore your session. Please sign in again.')
         return
       }
-      if (active && session) await routeOwner(session.user.id)
-    })
+      if (active && session) {
+        await routeOwner(session.user.id)
+      }
+    }
+
+    checkSession()
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active && session) void routeOwner(session.user.id)
+      if (active && session) {
+        void routeOwner(session.user.id)
+      }
     })
+
     return () => {
       active = false
       listener.subscription.unsubscribe()
@@ -71,7 +82,6 @@ export default function GymOwnerLogin() {
             email,
             password,
             options: {
-              // 🔁 Redirect to login page after email confirmation
               emailRedirectTo: redirectUrl,
             },
           })
@@ -112,7 +122,6 @@ export default function GymOwnerLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // 🔁 Redirect to login page after OAuth
         redirectTo: redirectUrl,
       },
     })
