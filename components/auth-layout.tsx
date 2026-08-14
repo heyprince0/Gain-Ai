@@ -7,26 +7,28 @@ import { AuthScreen } from './auth-screen'
 import { ProfileSetup } from './profile-setup'
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, profileLoading, hasProfile } = useAuth()
-  const router = useRouter()
   const pathname = usePathname()
 
-  // ⭐ Skip all gym‑owner routes – they handle their own auth & redirects
+  // Owner routes own their session and redirect decisions. Do not initialize
+  // member profile checks while an owner page is being rendered.
   if (pathname?.startsWith('/gym-owner')) {
     return <>{children}</>
   }
 
+  return <MemberAuthLayout>{children}</MemberAuthLayout>
+}
+
+function MemberAuthLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading, profileLoading, hasProfile } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
   const protectedRoutes = ['/dashboard', '/food-scanner', '/body-scanner']
   const isProtectedRoute = protectedRoutes.some(route => pathname?.startsWith(route))
   const isHomePage = pathname === '/'
 
   useEffect(() => {
-    if (loading) return
-    if (user && isHomePage) {
-      router.replace('/dashboard')
-      return
-    }
-  }, [user, loading, pathname])
+    if (!loading && user && isHomePage) router.replace('/dashboard')
+  }, [user, loading, isHomePage, router])
 
   if (loading) {
     return (
@@ -39,13 +41,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user && isProtectedRoute) {
-    return <AuthScreen />
-  }
-
-  if (user && !profileLoading && !hasProfile && isProtectedRoute) {
-    return <ProfileSetup />
-  }
-
+  if (!user && isProtectedRoute) return <AuthScreen />
+  if (user && !profileLoading && !hasProfile && isProtectedRoute) return <ProfileSetup />
   return <>{children}</>
 }

@@ -18,23 +18,39 @@ export default function GymOwnerLogin() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  // Check session and gym existence
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        const { data: gymData } = await supabase
-          .from('gyms')
-          .select('id')
-          .eq('owner_id', data.session.user.id)
-          .maybeSingle()
+  const redirectUrl =
+    typeof window !== 'undefined'
+      ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/gym-owner/login`
+      : undefined
 
-        if (gymData) {
-          router.replace('/gym-owner/dashboard')
-        } else {
-          router.replace('/gym-owner/setup')
-        }
-      }
+  async function routeOwner(userId: string) {
+    const { data: gymData, error: gymError } = await supabase
+      .from('gyms')
+      .select('id')
+      .eq('owner_id', userId)
+      .maybeSingle()
+
+    if (gymError) {
+      setError('We could not load your gym workspace. Please try again.')
+      return
+    }
+
+    router.replace(gymData ? '/gym-owner/dashboard' : '/gym-owner/setup')
+  }
+
+  // Handles an existing session and sessions created by the email/OAuth callback.
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (active && session) await routeOwner(session.user.id)
     })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active && session) void routeOwner(session.user.id)
+    })
+    return () => {
+      active = false
+      listener.subscription.unsubscribe()
+    }
   }, [router])
 
   async function submit(e: FormEvent) {
@@ -50,7 +66,7 @@ export default function GymOwnerLogin() {
             password,
             options: {
               // 🔁 Redirect to login page after email confirmation
-              emailRedirectTo: `${window.location.origin}/gym-owner/login`,
+              emailRedirectTo: redirectUrl,
             },
           })
 
@@ -73,18 +89,7 @@ export default function GymOwnerLogin() {
       return
     }
 
-    const { data: gymData } = await supabase
-      .from('gyms')
-      .select('id')
-      .eq('owner_id', userId)
-      .maybeSingle()
-
-    if (gymData) {
-      router.replace('/gym-owner/dashboard')
-    } else {
-      router.replace('/gym-owner/setup')
-    }
-
+    await routeOwner(userId)
     setBusy(false)
   }
 
@@ -96,7 +101,7 @@ export default function GymOwnerLogin() {
       provider: 'google',
       options: {
         // 🔁 Redirect to login page after OAuth
-        redirectTo: `${window.location.origin}/gym-owner/login`,
+        redirectTo: redirectUrl,
       },
     })
 
