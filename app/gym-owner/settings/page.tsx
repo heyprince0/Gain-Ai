@@ -32,7 +32,16 @@ export default function SettingsPage() {
 
   async function add(e: FormEvent) {
     e.preventDefault()
-    if (!gym) return
+    if (!gym) {
+      setError('Your gym workspace is still loading. Please try again.')
+      return
+    }
+    const price = Number(form.price)
+    const durationDays = Number(form.duration_days)
+    if (!form.plan_name.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(durationDays) || durationDays < 1) {
+      setError('Enter a plan name, a valid non-negative price, and a whole-number duration.')
+      return
+    }
     setBusy(true)
     setError('')
 
@@ -41,8 +50,8 @@ export default function SettingsPage() {
       .insert({
         gym_id: gym.id,
         plan_name: form.plan_name,     // ✅ correct column name
-        price: Number(form.price),
-        duration_days: Number(form.duration_days),
+        price,
+        duration_days: durationDays,
       })
 
     if (insertError) {

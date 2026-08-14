@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase'
 
 export type Gym = { id: string; name: string; owner_name: string; owner_phone: string; address: string; city_area: string | null }
-export type Plan = { id: string; gym_id: string; name: string; price: number; duration_days: number }
-export type GymMember = { id: string; gym_id: string; profile_id: string | null; name: string; phone: string; address: string; plan_id: string | null; start_date: string; end_date: string; app_access: boolean; subscription_plans?: Plan | null }
+export type Plan = { id: string; gym_id: string; plan_name: string; price: number; duration_days: number }
+export type GymMember = { id: string; gym_id: string; profile_id: string | null; name: string; phone: string; address: string; plan_id: string | null; start_date: string; end_date: string; app_access: boolean; gym_subscription_plans?: Plan | null }
 
 export async function getOwnerGym(userId: string) {
   const { data, error } = await supabase.from('gyms').select('*').eq('owner_id', userId).maybeSingle()
@@ -26,8 +26,8 @@ export async function getOwnerData(userId: string) {
   const gym = await getOwnerGym(userId)
   if (!gym) return { gym: null, members: [], plans: [] as Plan[] }
   const [{ data: members, error: membersError }, { data: plans, error: plansError }] = await Promise.all([
-    supabase.from('gym_members').select('*, subscription_plans(*)').eq('gym_id', gym.id).order('created_at', { ascending: false }),
-    supabase.from('subscription_plans').select('*').eq('gym_id', gym.id).order('created_at', { ascending: false }),
+    supabase.from('gym_members').select('*, gym_subscription_plans(*)').eq('gym_id', gym.id).order('created_at', { ascending: false }),
+    supabase.from('gym_subscription_plans').select('*').eq('gym_id', gym.id).order('created_at', { ascending: false }),
   ])
   if (membersError) throw membersError
   if (plansError) throw plansError
