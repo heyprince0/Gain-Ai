@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { supabase } from "@/lib/supabase"
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/hero-section"
 import { StatsSection } from "@/components/stats-section"
@@ -17,11 +18,29 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/dashboard')
+      // ⭐ Check if this user is a gym owner
+      supabase
+        .from('gyms')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            // Gym owner → go to owner dashboard
+            window.location.replace('/gym-owner/dashboard')
+          } else {
+            // Regular member → go to member dashboard
+            router.replace('/dashboard')
+          }
+        })
+        .catch(() => {
+          // Fallback: go to member dashboard
+          router.replace('/dashboard')
+        })
     }
   }, [user, loading])
 
-  // Show nothing while checking auth — prevents the flicker
+  // Show nothing while checking auth — prevents flicker
   if (loading || user) return null
 
   return (
