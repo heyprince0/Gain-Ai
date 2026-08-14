@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function GymOwnerLogin() {
   const router = useRouter()
-  // ⭐ Default to 'signup' mode
+  // ⭐ Default to 'signup' (Create account)
   const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,7 +40,7 @@ export default function GymOwnerLogin() {
     router.replace(gymData ? '/gym-owner/dashboard' : '/gym-owner/setup')
   }
 
-  // ⭐ Check existing session and route properly
+  // ⭐ Check existing session on mount and after auth changes
   useEffect(() => {
     let active = true
 
