@@ -9,7 +9,7 @@ import { ProfileSetup } from './profile-setup'
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  // ⭐ Owner routes own their session and redirect decisions.
+  // ⭐ Owner routes handle their own auth – skip everything
   if (pathname?.startsWith('/gym-owner')) {
     return <>{children}</>
   }
