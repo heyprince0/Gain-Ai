@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from './supabase'
 import type { User } from '@supabase/supabase-js'
-import { usePathname } from 'next/navigation'   // ← import
+import { usePathname } from 'next/navigation'
 
 interface AuthContextType {
   user: User | null
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null)
   const pathname = usePathname()
 
-  // ⭐ Skip all profile checks for gym‑owner routes
+  // ⭐ Check if we're on a gym‑owner route
   const isGymOwnerRoute = pathname?.startsWith('/gym-owner')
 
   useEffect(() => {
@@ -84,8 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshProfile = async () => {
-    // ⭐ Skip for gym owners – they don't have a `profiles` record
+    // ⭐ On gym‑owner routes, we don't need a profile; treat as "hasProfile" to avoid member‑side redirects
     if (isGymOwnerRoute) {
+      setHasProfile(true)      // ← crucial: prevents member layout from thinking profile is missing
       setProfileLoading(false)
       return
     }
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return
     refreshProfile()
-  }, [user, loading, isGymOwnerRoute])   // ← re‑run when route changes
+  }, [user, loading, isGymOwnerRoute])
 
   return (
     <AuthContext.Provider value={{ user, loading, profileLoading, hasProfile, intendedRoute, signUp, signIn, signInWithGoogle, signOut, refreshProfile, setIntendedRoute }}>
