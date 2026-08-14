@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from './supabase'
 import type { User } from '@supabase/supabase-js'
+import { usePathname } from 'next/navigation'
 
 interface AuthContextType {
   user: User | null
@@ -26,11 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasProfile, setHasProfile] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null)
+  const pathname = usePathname()
+
+  // ⭐ Skip profile checks for gym owner routes
+  const isGymOwnerRoute = pathname?.startsWith('/gym-owner')
 
   useEffect(() => {
     let mounted = true
 
-    // Get initial session first before anything renders
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) {
         setUser(session?.user ?? null)
@@ -38,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // Listen for ALL auth state changes including TOKEN_REFRESHED and INITIAL_SESSION
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (mounted) {
@@ -81,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshProfile = async () => {
+    // ⭐ Skip profile check for gym owner routes
+    if (isGymOwnerRoute) {
+      setProfileLoading(false)
+      return
+    }
+
     if (!user) {
       setHasProfile(false)
       setProfileLoading(false)
@@ -107,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return
     refreshProfile()
-  }, [user, loading])
+  }, [user, loading, isGymOwnerRoute])
 
   return (
     <AuthContext.Provider value={{ user, loading, profileLoading, hasProfile, intendedRoute, signUp, signIn, signInWithGoogle, signOut, refreshProfile, setIntendedRoute }}>
@@ -123,4 +132,3 @@ export function useAuth() {
   }
   return context
 }
-
