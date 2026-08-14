@@ -50,15 +50,15 @@ export default function GymSetup() {
       })
 
       if (insertError) {
-        console.error('Supabase insert error:', insertError)
-        setError(`Database error: ${insertError.message} (code: ${insertError.code})`)
+        console.error('[v0] Gym setup insert failed:', insertError)
+        setError('We could not save your gym details. Please check the form and try again.')
         return
       }
 
       router.replace('/gym-owner/dashboard')
     } catch (err) {
-      console.error('Unexpected error:', err)
-      setError('An unexpected error occurred. Please try again.')
+      console.error('[v0] Unexpected gym setup error:', err)
+      setError('Something went wrong while setting up your gym. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -78,13 +78,13 @@ export default function GymSetup() {
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="flex flex-col gap-4">
-            {[
+            {([
               ['gym_name', 'Gym name', true],
               ['owner_name', 'Your name', true],
               ['owner_phone', 'Phone number', true],
               ['address', 'Address', true],
               ['city_area', 'City / area', false],
-            ].map(([key, label, required]) => (
+            ] as const).map(([key, label, required]) => (
               <div className="flex flex-col gap-2" key={key}>
                 <Label htmlFor={key}>{label}</Label>
                 <Input

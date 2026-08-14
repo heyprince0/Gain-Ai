@@ -31,6 +31,7 @@ export default function GymOwnerLogin() {
       .maybeSingle()
 
     if (gymError) {
+      console.error('[v0] Owner workspace lookup failed:', gymError)
       setError('We could not load your gym workspace. Please try again.')
       return
     }
@@ -41,7 +42,12 @@ export default function GymOwnerLogin() {
   // Handles an existing session and sessions created by the email/OAuth callback.
   useEffect(() => {
     let active = true
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+      if (sessionError) {
+        console.error('[v0] Owner session lookup failed:', sessionError)
+        if (active) setError('We could not restore your session. Please sign in again.')
+        return
+      }
       if (active && session) await routeOwner(session.user.id)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -71,7 +77,13 @@ export default function GymOwnerLogin() {
           })
 
     if (result.error) {
-      setError(result.error.message)
+      console.error('[v0] Owner authentication failed:', result.error)
+      const message = result.error.message.toLowerCase().includes('email not confirmed')
+        ? 'Please confirm your email before signing in.'
+        : mode === 'signin'
+          ? 'Invalid email or password.'
+          : 'We could not create your account. Please check your details and try again.'
+      setError(message)
       setBusy(false)
       return
     }
