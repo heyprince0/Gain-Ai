@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function GymOwnerLogin() {
   const router = useRouter()
-  // ⭐ Default to 'signup' (Create account)
+  // ⭐ Default to sign‑up
   const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,43 +24,41 @@ export default function GymOwnerLogin() {
       ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/gym-owner/login`
       : undefined
 
-  async function routeOwner(userId: string) {
-    const { data: gymData, error: gymError } = await supabase
+  // ⭐ Use full page navigation to avoid React router interference
+  function redirectToOwnerDestination(userId: string) {
+    supabase
       .from('gyms')
       .select('id')
       .eq('owner_id', userId)
       .maybeSingle()
-
-    if (gymError) {
-      console.error('[v0] Owner workspace lookup failed:', gymError)
-      setError('We could not load your gym workspace. Please try again.')
-      return
-    }
-
-    router.replace(gymData ? '/gym-owner/dashboard' : '/gym-owner/setup')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[v0] Owner workspace lookup failed:', error)
+          setError('We could not load your gym workspace. Please try again.')
+          setBusy(false)
+          return
+        }
+        const destination = data ? '/gym-owner/dashboard' : '/gym-owner/setup'
+        window.location.replace(destination)   // ← full page redirect
+      })
   }
 
-  // ⭐ Check existing session on mount and after auth changes
+  // Check existing session on mount
   useEffect(() => {
     let active = true
-
-    const checkSession = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        console.error('[v0] Owner session lookup failed:', sessionError)
-        if (active) setError('We could not restore your session. Please sign in again.')
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('[v0] Session error:', error)
         return
       }
       if (active && session) {
-        await routeOwner(session.user.id)
+        redirectToOwnerDestination(session.user.id)
       }
-    }
-
-    checkSession()
+    })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active && session) {
-        void routeOwner(session.user.id)
+        redirectToOwnerDestination(session.user.id)
       }
     })
 
@@ -68,7 +66,7 @@ export default function GymOwnerLogin() {
       active = false
       listener.subscription.unsubscribe()
     }
-  }, [router])
+  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -81,18 +79,16 @@ export default function GymOwnerLogin() {
         : await supabase.auth.signUp({
             email,
             password,
-            options: {
-              emailRedirectTo: redirectUrl,
-            },
+            options: { emailRedirectTo: redirectUrl },
           })
 
     if (result.error) {
-      console.error('[v0] Owner authentication failed:', result.error)
+      console.error('[v0] Auth error:', result.error)
       const message = result.error.message.toLowerCase().includes('email not confirmed')
         ? 'Please confirm your email before signing in.'
         : mode === 'signin'
           ? 'Invalid email or password.'
-          : 'We could not create your account. Please check your details and try again.'
+          : 'Could not create account. Please check your details.'
       setError(message)
       setBusy(false)
       return
@@ -111,21 +107,18 @@ export default function GymOwnerLogin() {
       return
     }
 
-    await routeOwner(userId)
-    setBusy(false)
+    // ⭐ Use the full‑page redirect
+    redirectToOwnerDestination(userId)
+    // no need to setBusy false here because redirect will replace the page
   }
 
   async function signInWithGoogle() {
     setBusy(true)
     setError('')
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-      },
+      options: { redirectTo: redirectUrl },
     })
-
     if (error) {
       setError(error.message)
       setBusy(false)
@@ -136,12 +129,8 @@ export default function GymOwnerLogin() {
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Link
-            href="/"
-            className="mb-5 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Back to GainAi
+          <Link href="/" className="mb-5 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="size-4" /> Back to GainAi
           </Link>
           <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
             <Building2 />
@@ -149,24 +138,12 @@ export default function GymOwnerLogin() {
           <CardTitle className="pt-4 text-2xl">
             {mode === 'signin' ? 'Welcome back' : 'Create owner account'}
           </CardTitle>
-          <CardDescription>
-            Manage your gym, members, plans, and attendance in one place.
-          </CardDescription>
+          <CardDescription>Manage your gym, members, plans, and attendance in one place.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={signInWithGoogle}
-              disabled={busy}
-            >
-              {busy ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Chrome className="mr-2 size-4" />
-              )}
+            <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle} disabled={busy}>
+              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Chrome className="mr-2 size-4" />}
               Continue with Google
             </Button>
 
@@ -180,32 +157,13 @@ export default function GymOwnerLogin() {
             <form onSubmit={submit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="owner-email">Email</Label>
-                <Input
-                  id="owner-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="owner-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="owner-password">Password</Label>
-                <Input
-                  id="owner-password"
-                  type="password"
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <Input id="owner-password" type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-
-              {error && (
-                <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </p>
-              )}
-
+              {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
               <Button disabled={busy} className="w-full">
                 {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
                 {mode === 'signin' ? 'Sign in' : 'Create account'}
@@ -214,14 +172,9 @@ export default function GymOwnerLogin() {
 
             <button
               className="mt-5 w-full text-sm text-muted-foreground hover:text-primary"
-              onClick={() => {
-                setMode(mode === 'signin' ? 'signup' : 'signin')
-                setError('')
-              }}
+              onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError('') }}
             >
-              {mode === 'signin'
-                ? 'New to GainAi Owner? Create an account'
-                : 'Already have an account? Sign in'}
+              {mode === 'signin' ? 'New to GainAi Owner? Create an account' : 'Already have an account? Sign in'}
             </button>
           </div>
         </CardContent>
