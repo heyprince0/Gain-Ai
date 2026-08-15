@@ -16,6 +16,7 @@ const dayAbbreviations = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 interface Profile {
   id: string
   name: string
+  phone?: string
   age: number
   weight: number
   height: number
@@ -52,6 +53,7 @@ export function ProfileContent() {
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
+    phone: '',
     age: '',
     weight: '',
     height: '',
@@ -81,6 +83,7 @@ export function ProfileContent() {
           setProfile(profileData)
           setForm({
             name: profileData.name || '',
+            phone: profileData.phone || '',
             age: profileData.age?.toString() || '',
             weight: profileData.weight?.toString() || '',
             height: profileData.height?.toString() || '',
@@ -170,6 +173,7 @@ export function ProfileContent() {
         .upsert({
           id: user?.id,
           name: form.name,
+          phone: form.phone || null,
           age,
           weight,
           height,
@@ -183,6 +187,7 @@ export function ProfileContent() {
       setProfile({
         ...profile!,
         name: form.name,
+        phone: form.phone,
         age,
         weight,
         height,
@@ -238,6 +243,19 @@ export function ProfileContent() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className='w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all'
                 placeholder='Your name'
+                required
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className='block text-sm font-medium text-foreground mb-2'>Phone Number</label>
+              <input
+                type='tel'
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className='w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all'
+                placeholder='e.g. 9876543210'
                 required
               />
             </div>
