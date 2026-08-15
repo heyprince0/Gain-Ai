@@ -38,39 +38,80 @@ export function QrScannerDialog({
   const [phoneInput, setPhoneInput] = useState('')
   const [savingPhone, setSavingPhone] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const startTokenRef = useRef(0)
 
   useEffect(() => {
     if (!open) return
     startCamera()
     return () => {
-      scannerRef.current?.stop().then(() => scannerRef.current?.clear()).catch(() => {})
-      scannerRef.current = null
+      startTokenRef.current += 1 // invalidate any pending start attempt
+      safeStopAndClear()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  function safeStopAndClear() {
+    const scanner = scannerRef.current
+    scannerRef.current = null
+    if (!scanner) return
+    try {
+      scanner
+        .stop()
+        .then(() => {
+          try { scanner.clear() } catch {}
+        })
+        .catch(() => {
+          try { scanner.clear() } catch {}
+        })
+    } catch {
+      // stop() itself threw synchronously (e.g. camera never actually started) — ignore
+    }
+  }
+
   function startCamera() {
     setState({ status: 'scanning' })
-    const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID)
-    scannerRef.current = scanner
-    scanner
-      .start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 240, height: 240 } },
-        (decodedText) => handleScan(decodedText),
-        () => {} // ignore per-frame "no QR found" noise
-      )
-      .catch(() => {
-        setState({ status: 'error', message: 'Could not access the camera. Check camera permissions and try again.' })
-      })
+    const token = ++startTokenRef.current
+
+    // The dialog's content (and the #SCANNER_ELEMENT_ID div inside it) can take
+    // an extra frame to actually land in the DOM after `open` flips true.
+    // Html5Qrcode's constructor looks up that element immediately and throws
+    // *synchronously* if it isn't there yet — which, uncaught, was crashing
+    // the whole page. Waiting a frame + guarding with try/catch fixes that.
+    requestAnimationFrame(() => {
+      if (token !== startTokenRef.current) return // dialog closed/reopened meanwhile
+      const el = document.getElementById(SCANNER_ELEMENT_ID)
+      if (!el) {
+        setState({ status: 'error', message: 'Scanner failed to load. Please try again.' })
+        return
+      }
+
+      try {
+        const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID)
+        scannerRef.current = scanner
+        scanner
+          .start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 240, height: 240 } },
+            (decodedText) => handleScan(decodedText),
+            () => {} // ignore per-frame "no QR found" noise
+          )
+          .catch(() => {
+            if (token === startTokenRef.current) {
+              setState({ status: 'error', message: 'Could not access the camera. Check camera permissions and try again.' })
+            }
+          })
+      } catch {
+        setState({ status: 'error', message: 'Could not start the scanner. Please try again.' })
+      }
+    })
   }
 
   async function stopCamera() {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop()
-      } catch {}
-    }
+    const scanner = scannerRef.current
+    if (!scanner) return
+    try {
+      await scanner.stop()
+    } catch {}
   }
 
   async function handleScan(decodedText: string) {
@@ -171,8 +212,11 @@ export function QrScannerDialog({
     await matchByPhone(phoneInput.trim(), gymId)
   }
 
-  async function handleClose(next: boolean) {
-    if (!next) await stopCamera()
+  function handleClose(next: boolean) {
+    if (!next) {
+      startTokenRef.current += 1
+      safeStopAndClear()
+    }
     onOpenChange(next)
   }
 
