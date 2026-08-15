@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
-import { Plus, Trash2, QrCode } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { getOwnerData, type Gym, type Plan } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
+import { GymAttendanceQr } from '@/components/gym-attendance-qr'
 
 export default function SettingsPage() {
   const [gym, setGym] = useState<Gym | null>(null)
@@ -67,11 +68,13 @@ export default function SettingsPage() {
   }
 
   async function remove(id: string) {
-    const { error } = await supabase
-      .from('gym_subscription_plans')
-      .delete()
-      .eq('id', id)
-    if (error) console.error('Delete error:', error)
+    const { count } = await supabase.from('gym_members').select('id', { count: 'exact', head: true }).eq('plan_id', id)
+    if (count) {
+      setError('This plan is assigned to members and cannot be deleted.')
+      return
+    }
+    const { error } = await supabase.from('gym_subscription_plans').delete().eq('id', id)
+    if (error) setError('Could not delete this plan.')
     else await load()
   }
 
@@ -153,16 +156,8 @@ export default function SettingsPage() {
             <CardTitle>Attendance QR code</CardTitle>
             <CardDescription>Print this and place it at your gym entrance.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center gap-5 text-center">
-            <div className="flex size-52 items-center justify-center rounded-2xl border-4 border-foreground bg-background">
-              <QrCode className="size-36" strokeWidth={1.2} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Members scan this QR code in the GainAi app to log attendance.
-            </p>
-            <Button variant="outline" onClick={() => window.print()}>
-              Download QR code
-            </Button>
+          <CardContent>
+            {gym ? <GymAttendanceQr gymId={gym.id} gymName={gym.name} /> : <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>}
           </CardContent>
         </Card>
       </div>
