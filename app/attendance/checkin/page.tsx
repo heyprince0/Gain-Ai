@@ -2,8 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { CalendarCheck, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CalendarCheck } from 'lucide-react'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AttendanceQrScanner } from '@/components/attendance-qr-scanner'
 import { supabase } from '@/lib/supabase'
-export default function AttendanceCheckin() { const params = useSearchParams(); const gymId = params.get('gym'); const [gym, setGym] = useState<{ name: string } | null>(null); const [status, setStatus] = useState(''); const [busy, setBusy] = useState(false); useEffect(() => { if (gymId) supabase.from('gyms').select('name').eq('id', gymId).single().then(({ data }) => setGym(data)) }, [gymId]); async function checkin() { setBusy(true); const { data: { user } } = await supabase.auth.getUser(); if (!user || !gymId) return setStatus('Please sign in to GainAi before checking in.'); const { data: member } = await supabase.from('gym_members').select('id, app_access').eq('gym_id', gymId).eq('profile_id', user.id).maybeSingle(); if (!member || !member.app_access) return setStatus('Access not enabled. Please contact your gym administrator.'); const today = new Date().toISOString().slice(0, 10); const { error } = await supabase.from('gym_attendance').insert({ gym_id: gymId, member_id: member.id, attendance_date: today }); setStatus(error ? (error.code === '23505' ? 'Already checked in today.' : 'Could not log attendance.') : 'Attendance logged successfully.'); setBusy(false) } return <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4"><Card className="w-full max-w-md text-center"><CardHeader><div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck /></div><CardTitle className="pt-3">{gym?.name ?? 'Gym attendance'}</CardTitle><CardDescription>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</CardDescription></CardHeader><CardContent>{status ? <p className="rounded-xl bg-muted p-4 text-sm">{status}</p> : <Button className="w-full" onClick={checkin} disabled={busy}>{busy && <Loader2 className="animate-spin" data-icon="inline-start" />}Log my attendance</Button>}</CardContent></Card></main> }
+
+export default function AttendanceCheckin() {
+  const params = useSearchParams()
+  const gymId = params.get('gym')
+  const [gym, setGym] = useState<{ name: string } | null>(null)
+
+  useEffect(() => {
+    if (gymId) void supabase.from('gyms').select('name').eq('id', gymId).single().then(({ data }) => setGym(data))
+  }, [gymId])
+
+  if (!gymId) return <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4"><AttendanceQrScanner /></main>
+
+  return <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-muted/30 p-4">
+    <Card className="w-full max-w-md text-center"><CardHeader><div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck /></div><CardTitle>{gym?.name ?? 'Gym attendance'}</CardTitle><CardDescription>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</CardDescription></CardHeader></Card>
+    <AttendanceQrScanner />
+  </main>
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Phone, MapPin, Save } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Phone, MapPin, Save, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'

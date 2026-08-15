@@ -97,7 +97,7 @@ export function BottomNav() {
         {/* Center FAB for Food Scanner */}
         <button
           type="button"
-          onClick={() => router.push('/food-scanner')}
+          onClick={() => router.push('/attendance/checkin')}
           style={{
             position: 'absolute',
             top: '-22px',
