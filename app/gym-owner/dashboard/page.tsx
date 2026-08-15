@@ -19,6 +19,7 @@ export default function OwnerDashboard() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [todayCount, setTodayCount] = useState<number | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) =>
@@ -28,9 +29,27 @@ export default function OwnerDashboard() {
         setMembers(members)
         setPlans(plans)
         setLoading(false)
+        if (gym) fetchTodayAttendance(gym.id)
       })
     )
   }, [])
+
+  async function fetchTodayAttendance(gymId: string) {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+
+    const { count } = await supabase
+      .from('gym_attendance')
+      .select('id', { count: 'exact', head: true })
+      .eq('gym_id', gymId)
+      .eq('attendance_date', today)
+
+    setTodayCount(count ?? 0)
+  }
 
   const filtered = useMemo(
     () => members.filter((m) => `${m.name} ${m.phone}`.toLowerCase().includes(query.toLowerCase())),
@@ -44,7 +63,7 @@ export default function OwnerDashboard() {
     [Users, 'Total members', members.length],
     [UserCheck, 'Active members', active],
     [Clock3, 'Expiring soon', expiring],
-    [CalendarCheck, "Today's attendance", '—'],
+    [CalendarCheck, "Today's attendance", todayCount === null ? '—' : todayCount],
   ]
 
   return (
