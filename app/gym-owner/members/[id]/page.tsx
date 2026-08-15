@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
+import { AttendanceCalendar } from '@/components/attendance-calendar'
 import { formatDate, memberStatus, type GymMember } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
 
@@ -160,9 +161,7 @@ export default function MemberDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">
-              No attendance records loaded for this month yet.
-            </div>
+            <AttendanceCalendar memberId={member.id} />
           </CardContent>
         </Card>
       </div>
