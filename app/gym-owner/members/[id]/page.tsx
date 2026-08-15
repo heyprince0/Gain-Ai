@@ -13,4 +13,159 @@ import { Label } from '@/components/ui/label'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { formatDate, memberStatus, type GymMember } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
-export default function MemberDetail() { const { id } = useParams<{ id: string }>(); const [member, setMember] = useState<GymMember | null>(null); const [form, setForm] = useState({ name: '', phone: '', address: '' }); const [saved, setSaved] = useState(false); useEffect(() => { supabase.from('gym_members').select('*, gym_subscription_plans(*)').eq('id', id).single().then(({ data }) => { if (data) { setMember(data as GymMember); setForm({ name: data.name, phone: data.phone, address: data.address }) } }) }, [id]); async function access(value: boolean) { if (!member) return; await supabase.from('gym_members').update({ app_access: value }).eq('id', member.id); setMember({ ...member, app_access: value }) } async function save() { if (!member) return; await supabase.from('gym_members').update(form).eq('id', member.id); setMember({ ...member, ...form }); setSaved(true); setTimeout(() => setSaved(false), 2000) } if (!member) return <GymOwnerShell title="Member profile"><p className="text-sm text-muted-foreground">Loading member profile...</p></GymOwnerShell>; const status = memberStatus(member.end_date); return <GymOwnerShell title="Member profile"><div className="flex flex-col gap-6"><Link href="/gym-owner/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Back to members</Link><Card><CardContent className="flex flex-col gap-5 p-6"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-start"><div><div className="flex items-center gap-3"><h2 className="text-2xl font-semibold">{member.name}</h2><Badge variant={status === 'Active' ? 'default' : status === 'Expired' ? 'destructive' : 'secondary'}>{status}</Badge></div><div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground"><span className="flex items-center gap-2"><Phone className="size-4" />{member.phone}</span><span className="flex items-center gap-2"><MapPin className="size-4" />{member.address}</span></div></div><div className="text-left md:text-right"><p className="font-medium">{member.gym_subscription_plans?.plan_name ?? 'No plan'}</p><p className="text-sm text-muted-foreground">₹{member.gym_subscription_plans?.price ?? '—'}</p><p className="mt-2 text-sm">{formatDate(member.start_date)} — {formatDate(member.end_date)}</p></div></div><div className="grid gap-3 border-t pt-5 md:grid-cols-3"><div className="flex flex-col gap-2"><Label>Name</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div><div className="flex flex-col gap-2"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div><div className="flex flex-col gap-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div></div><Button variant="outline" className="w-fit" onClick={save}><Save data-icon="inline-start" />{saved ? 'Saved' : 'Save changes'}</Button></CardContent></Card><Card><CardHeader><CardTitle>GainAi app access</CardTitle></CardHeader><CardContent className="flex items-center justify-between gap-4"><div><p className="font-medium">{member.app_access ? 'Access enabled' : 'Access disabled'}</p><p className="text-sm text-muted-foreground">When off, this member cannot log into the GainAi app.</p></div><Switch checked={member.app_access} onCheckedChange={access} /></CardContent></Card><Card><CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays className="size-5 text-primary" />Attendance</CardTitle></CardHeader><CardContent><div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">No attendance records loaded for this month yet.</div></CardContent></Card></div></GymOwnerShell> }
+
+export default function MemberDetail() {
+  const { id } = useParams<{ id: string }>()
+  const [member, setMember] = useState<GymMember | null>(null)
+  const [form, setForm] = useState({ name: '', phone: '', address: '' })
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('gym_members')
+      .select('*, gym_subscription_plans(*)')
+      .eq('id', id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setMember(data as GymMember)
+          setForm({ name: data.name, phone: data.phone, address: data.address })
+        }
+      })
+  }, [id])
+
+  async function access(value: boolean) {
+    if (!member) return
+    await supabase.from('gym_members').update({ app_access: value }).eq('id', member.id)
+    setMember({ ...member, app_access: value })
+  }
+
+  async function save() {
+    if (!member) return
+    await supabase.from('gym_members').update(form).eq('id', member.id)
+    setMember({ ...member, ...form })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  if (!member) {
+    return (
+      <GymOwnerShell title="Member profile">
+        <p className="text-sm text-muted-foreground">Loading member profile...</p>
+      </GymOwnerShell>
+    )
+  }
+
+  const status = memberStatus(member.end_date)
+  const isConnected = !!member.linked_profile_id
+
+  return (
+    <GymOwnerShell title="Member profile">
+      <div className="flex flex-col gap-6">
+        <Link
+          href="/gym-owner/dashboard"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Back to members
+        </Link>
+
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-6">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-semibold">{member.name}</h2>
+                  <Badge variant={status === 'Active' ? 'default' : status === 'Expired' ? 'destructive' : 'secondary'}>
+                    {status}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Phone className="size-4" />
+                    {member.phone}
+                    <Badge
+                      variant={isConnected ? 'outline' : 'secondary'}
+                      className={isConnected ? 'ml-1 border-transparent bg-green-500/15 text-green-600 dark:text-green-400' : 'ml-1'}
+                    >
+                      {isConnected ? 'App connected' : 'Not connected yet'}
+                    </Badge>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <MapPin className="size-4" />
+                    {member.address}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-left md:text-right">
+                <p className="font-medium">{member.gym_subscription_plans?.plan_name ?? 'No plan'}</p>
+                <p className="text-sm text-muted-foreground">₹{member.gym_subscription_plans?.price ?? '—'}</p>
+                <p className="mt-2 text-sm">
+                  {formatDate(member.start_date)} — {formatDate(member.end_date)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-t pt-5 md:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <Label>Name</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Address</Label>
+                <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              If you change the phone number here, the member's app will re-link automatically the next time
+              they scan the attendance QR with that number.
+            </p>
+
+            <Button variant="outline" className="w-fit" onClick={save}>
+              <Save data-icon="inline-start" />
+              {saved ? 'Saved' : 'Save changes'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>GainAi app access</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">{member.app_access ? 'Access enabled' : 'Access disabled'}</p>
+              <p className="text-sm text-muted-foreground">
+                {isConnected
+                  ? 'This member has connected their GainAi app account to this phone number.'
+                  : "This member hasn't scanned the attendance QR yet, so their app account isn't connected."}
+              </p>
+            </div>
+            <Switch checked={member.app_access} onCheckedChange={access} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="size-5 text-primary" />
+              Attendance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">
+              No attendance records loaded for this month yet.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </GymOwnerShell>
+  )
+}
