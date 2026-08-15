@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell, Zap, Plus, Utensils, Clock } from 'lucide-react'
+import { Activity, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell, Zap, Plus, Utensils, Clock, ScanLine } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import { TodayWorkoutCard } from '@/components/today-workout-card'
 import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
+import { QrScannerDialog } from '@/components/qr-scanner-dialog'
 
 interface Profile {
   id: string
@@ -31,6 +32,7 @@ interface Profile {
   bmr?: number
   tdee?: number
   created_at: string
+  gym_id?: string | null
 }
 
 interface FoodScan {
@@ -103,6 +105,7 @@ export function Dashboard() {
   const [showPlanner, setShowPlanner] = useState(false)
   const [hasWorkoutPlan, setHasWorkoutPlan] = useState(false)
   const [showLogMeal, setShowLogMeal] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -212,7 +215,7 @@ export function Dashboard() {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at')
+          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
           .eq('id', user.id)
           .single()
 
@@ -424,13 +427,24 @@ export function Dashboard() {
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
       {/* Header */}
-      <div className='mb-8'>
-        <h1 className='text-3xl font-bold tracking-tight text-foreground'>
-          Welcome, {displayName}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {"Today's fitness overview"}
-        </p>
+      <div className='mb-8 flex items-start justify-between gap-3'>
+        <div>
+          <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+            Welcome, {displayName}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {"Today's fitness overview"}
+          </p>
+        </div>
+        {profile.gym_id && (
+          <button
+            onClick={() => setShowScanner(true)}
+            aria-label="Scan gym attendance QR"
+            className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
+          >
+            <ScanLine className='h-5 w-5' />
+          </button>
+        )}
       </div>
 
       {/* Streak Strip */}
@@ -658,6 +672,14 @@ export function Dashboard() {
         onOpenChange={setShowLogMeal}
         onMealSaved={refetchData}
       />
+
+      {profile.gym_id && (
+        <QrScannerDialog
+          open={showScanner}
+          onOpenChange={setShowScanner}
+          userId={user?.id ?? ''}
+        />
+      )}
     </div>
   )
 }
