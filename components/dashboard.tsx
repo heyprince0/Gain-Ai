@@ -436,15 +436,13 @@ export function Dashboard() {
             {"Today's fitness overview"}
           </p>
         </div>
-        {profile.gym_id && (
-          <button
-            onClick={() => setShowScanner(true)}
-            aria-label="Scan gym attendance QR"
-            className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
-          >
-            <ScanLine className='h-5 w-5' />
-          </button>
-        )}
+        <button
+          onClick={() => setShowScanner(true)}
+          aria-label="Scan gym attendance QR"
+          className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
+        >
+          <ScanLine className='h-5 w-5' />
+        </button>
       </div>
 
       {/* Streak Strip */}
@@ -673,13 +671,11 @@ export function Dashboard() {
         onMealSaved={refetchData}
       />
 
-      {profile.gym_id && (
-        <QrScannerDialog
-          open={showScanner}
-          onOpenChange={setShowScanner}
-          userId={user?.id ?? ''}
-        />
-      )}
+      <QrScannerDialog
+        open={showScanner}
+        onOpenChange={setShowScanner}
+        userId={user?.id ?? ''}
+      />
     </div>
   )
 }
