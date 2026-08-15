@@ -16,14 +16,11 @@ type ScanState =
   | { status: 'checking' }
   | { status: 'needs_phone'; gymId: string }
   | { status: 'not_found'; gymId: string; phone: string }
+  | { status: 'linked_elsewhere' }
   | { status: 'access_paused' }
   | { status: 'success'; message: string }
   | { status: 'already'; message: string }
   | { status: 'error'; message: string }
-
-function last10Digits(phone: string) {
-  return phone.replace(/\D/g, '').slice(-10)
-}
 
 export function QrScannerDialog({
   open,
@@ -44,7 +41,7 @@ export function QrScannerDialog({
     if (!open) return
     startCamera()
     return () => {
-      startTokenRef.current += 1 // invalidate any pending start attempt
+      startTokenRef.current += 1
       safeStopAndClear()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,34 +54,25 @@ export function QrScannerDialog({
     try {
       scanner
         .stop()
-        .then(() => {
-          try { scanner.clear() } catch {}
-        })
-        .catch(() => {
-          try { scanner.clear() } catch {}
-        })
-    } catch {
-      // stop() itself threw synchronously (e.g. camera never actually started) — ignore
-    }
+        .then(() => { try { scanner.clear() } catch {} })
+        .catch(() => { try { scanner.clear() } catch {} })
+    } catch {}
   }
 
   function startCamera() {
     setState({ status: 'scanning' })
     const token = ++startTokenRef.current
 
-    // The dialog's content (and the #SCANNER_ELEMENT_ID div inside it) can take
-    // an extra frame to actually land in the DOM after `open` flips true.
-    // Html5Qrcode's constructor looks up that element immediately and throws
-    // *synchronously* if it isn't there yet — which, uncaught, was crashing
-    // the whole page. Waiting a frame + guarding with try/catch fixes that.
+    // Wait a frame so the dialog's DOM node has actually mounted before
+    // Html5Qrcode looks it up — doing this immediately was crashing the
+    // page when the element wasn't there yet.
     requestAnimationFrame(() => {
-      if (token !== startTokenRef.current) return // dialog closed/reopened meanwhile
+      if (token !== startTokenRef.current) return
       const el = document.getElementById(SCANNER_ELEMENT_ID)
       if (!el) {
         setState({ status: 'error', message: 'Scanner failed to load. Please try again.' })
         return
       }
-
       try {
         const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID)
         scannerRef.current = scanner
@@ -93,7 +81,7 @@ export function QrScannerDialog({
             { facingMode: 'environment' },
             { fps: 10, qrbox: { width: 240, height: 240 } },
             (decodedText) => handleScan(decodedText),
-            () => {} // ignore per-frame "no QR found" noise
+            () => {}
           )
           .catch(() => {
             if (token === startTokenRef.current) {
@@ -109,9 +97,7 @@ export function QrScannerDialog({
   async function stopCamera() {
     const scanner = scannerRef.current
     if (!scanner) return
-    try {
-      await scanner.stop()
-    } catch {}
+    try { await scanner.stop() } catch {}
   }
 
   async function handleScan(decodedText: string) {
@@ -130,7 +116,6 @@ export function QrScannerDialog({
       return
     }
 
-    // Phone number is the trigger for everything — check if we have one on file.
     const { data: profileRow } = await supabase
       .from('profiles')
       .select('phone')
@@ -149,32 +134,34 @@ export function QrScannerDialog({
   async function matchByPhone(phone: string, gymId: string) {
     setState({ status: 'checking' })
 
-    const search = last10Digits(phone)
+    // Uses a security-definer RPC so it can see the gym_members row even
+    // before this profile is linked to it — a direct table query gets
+    // silently blocked by RLS for anyone not already linked.
+    const { data, error } = await supabase.rpc('match_and_link_member', {
+      p_gym_id: gymId,
+      p_phone: phone,
+    })
 
-    const { data: candidates } = await supabase
-      .from('gym_members')
-      .select('id, app_access, linked_profile_id, phone')
-      .eq('gym_id', gymId)
-      .is('deleted_at', null)
-      .ilike('phone', `%${search}%`)
+    if (error) {
+      setState({ status: 'error', message: 'Could not check your membership. Please try again.' })
+      return
+    }
 
-    const member = candidates?.[0] ?? null
+    const member = Array.isArray(data) ? data[0] : data
 
     if (!member) {
       setState({ status: 'not_found', gymId, phone })
       return
     }
 
-    if (!member.app_access) {
-      setState({ status: 'access_paused' })
+    if (member.linked_to_other) {
+      setState({ status: 'linked_elsewhere' })
       return
     }
 
-    // First time this phone has scanned in — connect this profile to the
-    // gym owner's member record, and mark the profile as belonging to this gym.
-    if (!member.linked_profile_id) {
-      await supabase.from('gym_members').update({ linked_profile_id: userId }).eq('id', member.id)
-      await supabase.from('profiles').update({ gym_id: gymId }).eq('id', userId)
+    if (!member.app_access) {
+      setState({ status: 'access_paused' })
+      return
     }
 
     const today = new Intl.DateTimeFormat('en-CA', {
@@ -186,7 +173,7 @@ export function QrScannerDialog({
 
     const { error: insertError } = await supabase
       .from('gym_attendance')
-      .insert({ gym_id: gymId, member_id: member.id, attendance_date: today })
+      .insert({ gym_id: gymId, member_id: member.member_id, attendance_date: today })
 
     if (insertError) {
       if (insertError.code === '23505') {
@@ -289,6 +276,19 @@ export function QrScannerDialog({
                 className="w-full rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] py-2.5 text-sm font-semibold text-black disabled:opacity-50"
               >
                 {savingPhone ? 'Checking...' : 'Try this number'}
+              </button>
+            </div>
+          )}
+
+          {state.status === 'linked_elsewhere' && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <Phone className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm font-semibold text-foreground">Number already connected</p>
+              <p className="text-xs text-muted-foreground">
+                This phone number is already linked to a different GainAi account. Please contact your gym if this doesn't look right.
+              </p>
+              <button onClick={startCamera} className="rounded-xl border border-border/50 px-4 py-2 text-sm font-medium hover:bg-muted/40">
+                Try again
               </button>
             </div>
           )}
