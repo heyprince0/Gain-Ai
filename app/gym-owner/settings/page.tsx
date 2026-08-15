@@ -157,7 +157,7 @@ export default function SettingsPage() {
             <CardDescription>Print this and place it at your gym entrance.</CardDescription>
           </CardHeader>
           <CardContent>
-            {gym ? <GymAttendanceQr gymId={gym.id} gymName={gym.name} /> : <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>}
+            {gym ? <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} /> : <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>}
           </CardContent>
         </Card>
       </div>
