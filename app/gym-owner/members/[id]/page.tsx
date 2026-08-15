@@ -3,23 +3,31 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, CalendarDays, Phone, MapPin, Save, Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { AttendanceCalendar } from '@/components/attendance-calendar'
+import { StatusBadge } from '@/components/status-badge'
 import { formatDate, memberStatus, type GymMember } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
 
 export default function MemberDetail() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [member, setMember] = useState<GymMember | null>(null)
   const [form, setForm] = useState({ name: '', phone: '', address: '' })
   const [saved, setSaved] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     supabase
@@ -47,6 +55,21 @@ export default function MemberDetail() {
     setMember({ ...member, ...form })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function removeMember() {
+    if (!member) return
+    setDeleting(true)
+    const { error } = await supabase
+      .from('gym_members')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', member.id)
+    if (error) {
+      console.error('Delete error:', error)
+      setDeleting(false)
+      return
+    }
+    router.replace('/gym-owner/dashboard')
   }
 
   if (!member) {
@@ -77,9 +100,7 @@ export default function MemberDetail() {
               <div>
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-semibold">{member.name}</h2>
-                  <Badge variant={status === 'Active' ? 'default' : status === 'Expired' ? 'destructive' : 'secondary'}>
-                    {status}
-                  </Badge>
+                  <StatusBadge status={status} />
                 </div>
 
                 <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
@@ -164,7 +185,37 @@ export default function MemberDetail() {
             <AttendanceCalendar memberId={member.id} />
           </CardContent>
         </Card>
+
+        <div className="flex justify-end border-t pt-5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 data-icon="inline-start" />
+            Remove member
+          </Button>
+        </div>
       </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {member.name} from your gym and their attendance history.
+              This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={removeMember} disabled={deleting}>
+              {deleting ? 'Removing...' : 'Remove member'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </GymOwnerShell>
   )
 }
