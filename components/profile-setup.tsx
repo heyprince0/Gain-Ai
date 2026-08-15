@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 interface ProfileFormData {
   fullName: string
+  phone: string
   age: number
   weight: number
   goal: 'lose' | 'maintain' | 'gain'
@@ -57,6 +58,7 @@ export function ProfileSetup() {
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<ProfileFormData>({
     fullName: '',
+    phone: '',
     age: 25,
     weight: 70,
     goal: 'maintain',
@@ -87,6 +89,7 @@ export function ProfileSetup() {
         .upsert({
           id: user.id,
           name: formData.fullName,
+          phone: formData.phone || null,
           age: parseInt(formData.age.toString()),
           weight: parseFloat(formData.weight.toString()),
           height: parseFloat(height),
@@ -131,6 +134,20 @@ export function ProfileSetup() {
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:border-primary focus:outline-none'
                 placeholder='Your name'
+                required
+              />
+            </div>
+
+            <div>
+              <label className='block text-sm font-medium text-foreground mb-1'>
+                Phone Number
+              </label>
+              <input
+                type='tel'
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:border-primary focus:outline-none'
+                placeholder='e.g. 9876543210'
                 required
               />
             </div>
