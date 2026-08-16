@@ -6,10 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { getOwnerData, type Gym, type Plan } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
 import { GymAttendanceQr } from '@/components/gym-attendance-qr'
+import { AppearanceCard } from '@/components/appearance-card'
 
 export default function SettingsPage() {
   const [gym, setGym] = useState<Gym | null>(null)
@@ -17,13 +22,18 @@ export default function SettingsPage() {
   const [form, setForm] = useState({ plan_name: '', price: '', duration_days: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [planToDelete, setPlanToDelete] = useState<Plan | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = () =>
     supabase.auth.getUser().then(({ data }) =>
       data.user &&
       getOwnerData(data.user.id).then(({ gym, plans }) => {
         setGym(gym)
-        setPlans(plans)
+        // Only show plans still offered to new members — soft-deleted
+        // ones stay in the database (so members already on them keep
+        // their plan name/price) but drop out of this list.
+        setPlans(plans.filter((p) => p.is_active !== false))
       })
     )
 
@@ -47,10 +57,10 @@ export default function SettingsPage() {
     setError('')
 
     const { error: insertError } = await supabase
-      .from('gym_subscription_plans')  // ✅ correct table name
+      .from('gym_subscription_plans')
       .insert({
         gym_id: gym.id,
-        plan_name: form.plan_name,     // ✅ correct column name
+        plan_name: form.plan_name,
         price,
         duration_days: durationDays,
       })
@@ -67,15 +77,30 @@ export default function SettingsPage() {
     setBusy(false)
   }
 
-  async function remove(id: string) {
-    const { count } = await supabase.from('gym_members').select('id', { count: 'exact', head: true }).eq('plan_id', id)
-    if (count) {
-      setError('This plan is assigned to members and cannot be deleted.')
+  async function confirmDelete() {
+    if (!planToDelete) return
+    setDeleting(true)
+    setError('')
+
+    // Soft delete: hide it from new members instead of removing the row.
+    // A hard delete here would either be blocked by the plan_id foreign
+    // key on any member who has this plan, or silently break their
+    // plan name/price display if it wasn't blocked.
+    const { error: updateError } = await supabase
+      .from('gym_subscription_plans')
+      .update({ is_active: false })
+      .eq('id', planToDelete.id)
+
+    setDeleting(false)
+
+    if (updateError) {
+      console.error('Delete error:', updateError)
+      setError('Could not delete this plan. Please try again.')
       return
     }
-    const { error } = await supabase.from('gym_subscription_plans').delete().eq('id', id)
-    if (error) setError('Could not delete this plan.')
-    else await load()
+
+    setPlanToDelete(null)
+    await load()
   }
 
   return (
@@ -101,7 +126,7 @@ export default function SettingsPage() {
                       ₹{p.price} · {p.duration_days} days
                     </p>
                   </div>
-                  <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
+                  <Button size="icon" variant="ghost" onClick={() => setPlanToDelete(p)}>
                     <Trash2 />
                   </Button>
                 </div>
@@ -151,16 +176,42 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Attendance QR code</CardTitle>
-            <CardDescription>Print this and place it at your gym entrance.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {gym ? <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} /> : <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>}
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance QR code</CardTitle>
+              <CardDescription>Print this and place it at your gym entrance.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {gym ? (
+                <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} />
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <AppearanceCard />
+        </div>
       </div>
+
+      <AlertDialog open={!!planToDelete} onOpenChange={(open) => !open && setPlanToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{planToDelete?.plan_name}" will no longer be offered to new members. Members currently
+              on this plan keep their existing dates and details — nothing changes for them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete plan'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </GymOwnerShell>
   )
 }
