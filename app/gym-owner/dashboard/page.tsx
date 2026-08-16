@@ -42,13 +42,16 @@ export default function OwnerDashboard() {
       day: '2-digit',
     }).format(new Date())
 
-    const { count } = await supabase
+    // Fetching actual rows and taking the length instead of a head-count
+    // query — head-count + filters was returning the gym's total attendance
+    // instead of just today's, so this is the reliable version.
+    const { data } = await supabase
       .from('gym_attendance')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('gym_id', gymId)
       .eq('attendance_date', today)
 
-    setTodayCount(count ?? 0)
+    setTodayCount(data?.length ?? 0)
   }
 
   const filtered = useMemo(
