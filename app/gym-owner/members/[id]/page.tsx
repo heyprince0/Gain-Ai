@@ -1,161 +1,221 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, CalendarDays, Phone, MapPin, Save, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { GymOwnerShell } from '@/components/gym-owner-shell'
+import { AttendanceCalendar } from '@/components/attendance-calendar'
+import { StatusBadge } from '@/components/status-badge'
+import { formatDate, memberStatus, type GymMember } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
 
-const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })
-const TIME_FORMAT = new Intl.DateTimeFormat('en-IN', {
-  timeZone: 'Asia/Kolkata',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-})
-
-function toISODate(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function todayISOInIST() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
-export function AttendanceCalendar({ memberId }: { memberId: string }) {
-  const [cursor, setCursor] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
-  })
-  const [attendance, setAttendance] = useState<Map<string, string>>(new Map()) // iso date -> scanned_at
-  const [loading, setLoading] = useState(true)
-
-  const year = cursor.getFullYear()
-  const month = cursor.getMonth()
-  const todayStr = todayISOInIST()
-  const isCurrentMonthView = year === new Date().getFullYear() && month === new Date().getMonth()
+export default function MemberDetail() {
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const [member, setMember] = useState<GymMember | null>(null)
+  const [form, setForm] = useState({ name: '', phone: '', address: '' })
+  const [saved, setSaved] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-
-    const monthStart = new Date(year, month, 1)
-    const monthEnd = new Date(year, month + 1, 0)
-
     supabase
-      .from('gym_attendance')
-      .select('attendance_date, scanned_at')
-      .eq('member_id', memberId)
-      .gte('attendance_date', toISODate(monthStart))
-      .lte('attendance_date', toISODate(monthEnd))
+      .from('gym_members')
+      .select('*, gym_subscription_plans(*)')
+      .eq('id', id)
+      .single()
       .then(({ data }) => {
-        if (cancelled) return
-        const map = new Map<string, string>()
-        for (const row of data ?? []) {
-          map.set(row.attendance_date as string, row.scanned_at as string)
+        if (data) {
+          setMember(data as GymMember)
+          setForm({ name: data.name, phone: data.phone, address: data.address })
         }
-        setAttendance(map)
-        setLoading(false)
       })
+  }, [id])
 
-    return () => {
-      cancelled = true
+  async function access(value: boolean) {
+    if (!member) return
+    await supabase.from('gym_members').update({ app_access: value }).eq('id', member.id)
+    setMember({ ...member, app_access: value })
+  }
+
+  async function save() {
+    if (!member) return
+    await supabase.from('gym_members').update(form).eq('id', member.id)
+    setMember({ ...member, ...form })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function removeMember() {
+    if (!member) return
+    setDeleting(true)
+    const { error } = await supabase
+      .from('gym_members')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', member.id)
+    if (error) {
+      console.error('Delete error:', error)
+      setDeleting(false)
+      return
     }
-  }, [memberId, year, month])
+    router.replace('/gym-owner/dashboard')
+  }
 
-  const cells = useMemo(() => {
-    const firstWeekday = new Date(year, month, 1).getDay()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const out: Array<{ day: number; iso: string } | null> = []
-    for (let i = 0; i < firstWeekday; i++) out.push(null)
-    for (let day = 1; day <= daysInMonth; day++) {
-      out.push({ day, iso: toISODate(new Date(year, month, day)) })
-    }
-    return out
-  }, [year, month])
+  if (!member) {
+    return (
+      <GymOwnerShell title="Member profile">
+        <p className="text-sm text-muted-foreground">Loading member profile...</p>
+      </GymOwnerShell>
+    )
+  }
 
-  const totalAttended = attendance.size
-  const todayScannedAt = attendance.get(todayStr)
+  const status = memberStatus(member.end_date)
+  const isConnected = !!member.linked_profile_id
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setCursor(new Date(year, month - 1, 1))}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60"
-          aria-label="Previous month"
+    <GymOwnerShell title="Member profile">
+      <div className="flex flex-col gap-6">
+        <Link
+          href="/gym-owner/dashboard"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ChevronLeft className="size-4" />
-        </button>
-        <p className="text-sm font-medium">
-          {MONTH_LABEL_FORMAT.format(cursor)}
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {loading ? '…' : `${totalAttended} visit${totalAttended === 1 ? '' : 's'}`}
-          </span>
-        </p>
-        <button
-          onClick={() => setCursor(new Date(year, month + 1, 1))}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60"
-          aria-label="Next month"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      </div>
+          <ArrowLeft className="size-4" />
+          Back to members
+        </Link>
 
-      <div className="grid grid-cols-7 gap-y-1.5 text-center">
-        {WEEKDAY_LABELS.map((label, i) => (
-          <div key={i} className="text-[11px] text-muted-foreground">
-            {label}
-          </div>
-        ))}
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-6">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-semibold">{member.name}</h2>
+                  <StatusBadge status={status} />
+                </div>
 
-        {cells.map((cell, i) => {
-          if (!cell) return <div key={`empty-${i}`} />
-          const scannedAt = attendance.get(cell.iso)
-          const isAttended = !!scannedAt
-          const isToday = cell.iso === todayStr
-          const tooltip = isAttended ? `Checked in at ${TIME_FORMAT.format(new Date(scannedAt))}` : undefined
+                <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Phone className="size-4" />
+                    {member.phone}
+                    <Badge
+                      variant={isConnected ? 'outline' : 'secondary'}
+                      className={isConnected ? 'ml-1 border-transparent bg-green-500/15 text-green-600 dark:text-green-400' : 'ml-1'}
+                    >
+                      {isConnected ? 'App connected' : 'Not connected yet'}
+                    </Badge>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <MapPin className="size-4" />
+                    {member.address}
+                  </span>
+                </div>
+              </div>
 
-          return (
-            <div key={cell.iso} className="flex items-center justify-center py-0.5">
-              <span
-                title={tooltip}
-                className={[
-                  'flex size-7 items-center justify-center rounded-full text-xs',
-                  isAttended ? 'bg-primary text-primary-foreground font-medium cursor-default' : 'text-foreground',
-                  isToday && !isAttended ? 'border border-primary text-primary' : '',
-                ].join(' ')}
-              >
-                {cell.day}
-              </span>
+              <div className="text-left md:text-right">
+                <p className="font-medium">{member.gym_subscription_plans?.plan_name ?? 'No plan'}</p>
+                <p className="text-sm text-muted-foreground">₹{member.gym_subscription_plans?.price ?? '—'}</p>
+                <p className="mt-2 text-sm">
+                  {formatDate(member.start_date)} — {formatDate(member.end_date)}
+                </p>
+              </div>
             </div>
-          )
-        })}
+
+            <div className="grid gap-3 border-t pt-5 md:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <Label>Name</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Address</Label>
+                <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              If you change the phone number here, the member's app will re-link automatically the next time
+              they scan the attendance QR with that number.
+            </p>
+
+            <Button variant="outline" className="w-fit" onClick={save}>
+              <Save data-icon="inline-start" />
+              {saved ? 'Saved' : 'Save changes'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>GainAi app access</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">{member.app_access ? 'Access enabled' : 'Access disabled'}</p>
+              <p className="text-sm text-muted-foreground">
+                {isConnected
+                  ? 'This member has connected their GainAi app account to this phone number.'
+                  : "This member hasn't scanned the attendance QR yet, so their app account isn't connected."}
+              </p>
+            </div>
+            <Switch checked={member.app_access} onCheckedChange={access} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="size-5 text-primary" />
+              Attendance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AttendanceCalendar memberId={member.id} />
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end border-t pt-5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 data-icon="inline-start" />
+            Remove member
+          </Button>
+        </div>
       </div>
 
-      {isCurrentMonthView && (
-        <div
-          className={[
-            'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
-            todayScannedAt
-              ? 'border-transparent bg-green-500/10 text-green-600 dark:text-green-400'
-              : 'border-dashed text-muted-foreground',
-          ].join(' ')}
-        >
-          {todayScannedAt ? <CheckCircle2 className="size-3.5 shrink-0" /> : <Circle className="size-3.5 shrink-0" />}
-          {todayScannedAt
-            ? `Checked in today at ${TIME_FORMAT.format(new Date(todayScannedAt))}`
-            : 'Not checked in yet today'}
-        </div>
-      )}
-
-      {!loading && totalAttended === 0 && !isCurrentMonthView && (
-        <p className="text-center text-xs text-muted-foreground">No visits logged this month.</p>
-      )}
-    </div>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {member.name} from your gym and their attendance history.
+              This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={removeMember} disabled={deleting}>
+              {deleting ? 'Removing...' : 'Remove member'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </GymOwnerShell>
   )
 }
