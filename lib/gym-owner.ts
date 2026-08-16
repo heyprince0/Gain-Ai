@@ -10,9 +10,13 @@ export async function getOwnerGym(userId: string) {
   return data as Gym | null
 }
 
-export function memberStatus(endDate: string) {
+export function daysUntilEnd(endDate: string) {
   const end = new Date(`${endDate}T23:59:59`)
-  const days = Math.ceil((end.getTime() - Date.now()) / 86400000)
+  return Math.ceil((end.getTime() - Date.now()) / 86400000)
+}
+
+export function memberStatus(endDate: string) {
+  const days = daysUntilEnd(endDate)
   if (days < 0) return 'Expired'
   if (days <= 7) return 'Expiring soon'
   return 'Active'
