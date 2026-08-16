@@ -26,18 +26,16 @@ export function usePwaInstall() {
       setIsInstallable(true)
     }
 
-    const installedHandler = () => {
+    window.addEventListener("beforeinstallprompt", handler)
+
+    window.addEventListener("appinstalled", () => {
       setIsInstalled(true)
       setIsInstallable(false)
       setDeferredPrompt(null)
-    }
-
-    window.addEventListener("beforeinstallprompt", handler)
-    window.addEventListener("appinstalled", installedHandler)
+    })
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
-      window.removeEventListener("appinstalled", installedHandler)
     }
   }, [])
 
@@ -45,7 +43,9 @@ export function usePwaInstall() {
     if (!deferredPrompt) return
 
     await deferredPrompt.prompt()
-    await deferredPrompt.userChoice
+    const { outcome } = await deferredPrompt.userChoice
+
+    console.log(`PWA install prompt outcome: ${outcome}`)
 
     setDeferredPrompt(null)
     setIsInstallable(false)
