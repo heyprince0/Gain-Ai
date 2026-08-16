@@ -1,14 +1,29 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })
+const TIME_FORMAT = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
 
 function toISODate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function todayISOInIST() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
 }
 
 export function AttendanceCalendar({ memberId }: { memberId: string }) {
@@ -16,12 +31,13 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
-  const [attendedDays, setAttendedDays] = useState<Set<string>>(new Set())
+  const [attendance, setAttendance] = useState<Map<string, string>>(new Map()) // iso date -> scanned_at
   const [loading, setLoading] = useState(true)
 
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
-  const todayStr = toISODate(new Date())
+  const todayStr = todayISOInIST()
+  const isCurrentMonthView = year === new Date().getFullYear() && month === new Date().getMonth()
 
   useEffect(() => {
     let cancelled = false
@@ -32,13 +48,17 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
 
     supabase
       .from('gym_attendance')
-      .select('attendance_date')
+      .select('attendance_date, scanned_at')
       .eq('member_id', memberId)
       .gte('attendance_date', toISODate(monthStart))
       .lte('attendance_date', toISODate(monthEnd))
       .then(({ data }) => {
         if (cancelled) return
-        setAttendedDays(new Set((data ?? []).map((row) => row.attendance_date as string)))
+        const map = new Map<string, string>()
+        for (const row of data ?? []) {
+          map.set(row.attendance_date as string, row.scanned_at as string)
+        }
+        setAttendance(map)
         setLoading(false)
       })
 
@@ -58,7 +78,8 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
     return out
   }, [year, month])
 
-  const totalAttended = attendedDays.size
+  const totalAttended = attendance.size
+  const todayScannedAt = attendance.get(todayStr)
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,14 +115,18 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
 
         {cells.map((cell, i) => {
           if (!cell) return <div key={`empty-${i}`} />
-          const isAttended = attendedDays.has(cell.iso)
+          const scannedAt = attendance.get(cell.iso)
+          const isAttended = !!scannedAt
           const isToday = cell.iso === todayStr
+          const tooltip = isAttended ? `Checked in at ${TIME_FORMAT.format(new Date(scannedAt))}` : undefined
+
           return (
             <div key={cell.iso} className="flex items-center justify-center py-0.5">
               <span
+                title={tooltip}
                 className={[
                   'flex size-7 items-center justify-center rounded-full text-xs',
-                  isAttended ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground',
+                  isAttended ? 'bg-primary text-primary-foreground font-medium cursor-default' : 'text-foreground',
                   isToday && !isAttended ? 'border border-primary text-primary' : '',
                 ].join(' ')}
               >
@@ -112,7 +137,23 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
         })}
       </div>
 
-      {!loading && totalAttended === 0 && (
+      {isCurrentMonthView && (
+        <div
+          className={[
+            'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
+            todayScannedAt
+              ? 'border-transparent bg-green-500/10 text-green-600 dark:text-green-400'
+              : 'border-dashed text-muted-foreground',
+          ].join(' ')}
+        >
+          {todayScannedAt ? <CheckCircle2 className="size-3.5 shrink-0" /> : <Circle className="size-3.5 shrink-0" />}
+          {todayScannedAt
+            ? `Checked in today at ${TIME_FORMAT.format(new Date(todayScannedAt))}`
+            : 'Not checked in yet today'}
+        </div>
+      )}
+
+      {!loading && totalAttended === 0 && !isCurrentMonthView && (
         <p className="text-center text-xs text-muted-foreground">No visits logged this month.</p>
       )}
     </div>
