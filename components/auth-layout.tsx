@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { AuthScreen } from './auth-screen'
 import { ProfileSetup } from './profile-setup'
+import { GymAccessGate } from './gym-access-gate'
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -44,5 +45,6 @@ function MemberAuthLayout({ children }: { children: React.ReactNode }) {
 
   if (!user && isProtectedRoute) return <AuthScreen />
   if (user && !profileLoading && !hasProfile && isProtectedRoute) return <ProfileSetup />
+  if (user && hasProfile && isProtectedRoute) return <GymAccessGate>{children}</GymAccessGate>
   return <>{children}</>
 }
