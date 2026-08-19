@@ -17,21 +17,40 @@ function isStandaloneNow() {
 }
 
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const [state, setState] = useState<GateState>('checking')
 
   useEffect(() => {
-    if (!user || !profile) return
+    if (!user) return
     let cancelled = false
 
     async function run() {
+      // Fetch the profile row directly rather than depending on whatever
+      // shape useAuth() exposes — this only needs gym_id and phone, and
+      // this way it works regardless of what the auth context does or
+      // doesn't include.
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('gym_id, phone')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (!profileRow) {
+        // Shouldn't happen at this point (profile setup already completed
+        // before this gate ever renders), but don't hang forever if it does.
+        setState(isStandaloneNow() ? 'ready' : 'show-install')
+        return
+      }
+
       // Already permanently linked to a gym — re-check access on every load.
-      if (profile.gym_id) {
+      if (profileRow.gym_id) {
         const { data } = await supabase
           .from('gym_members')
           .select('app_access')
           .eq('linked_profile_id', user.id)
-          .eq('gym_id', profile.gym_id)
+          .eq('gym_id', profileRow.gym_id)
           .is('deleted_at', null)
           .maybeSingle()
         if (cancelled) return
@@ -45,10 +64,10 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
 
       // Not linked yet — only relevant if they arrived via a gym's install QR.
       const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
-      if (pendingGymId && profile.phone) {
+      if (pendingGymId && profileRow.phone) {
         const { data } = await supabase.rpc('match_and_link_member', {
           p_gym_id: pendingGymId,
-          p_phone: profile.phone,
+          p_phone: profileRow.phone,
         })
         const member = Array.isArray(data) ? data[0] : data
         localStorage.removeItem(PENDING_GYM_KEY)
@@ -69,7 +88,7 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [user, profile])
+  }, [user])
 
   if (state === 'checking') {
     return (
