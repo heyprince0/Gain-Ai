@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase'
 import { PwaInstallPrompt } from './pwa-install-prompt'
 
 const PENDING_GYM_KEY = 'gainai_pending_gym_id'
-const INSTALL_DISMISSED_KEY = 'gainai_install_dismissed'
 
 type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
 
@@ -15,11 +14,6 @@ function isStandaloneNow() {
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as unknown as { standalone?: boolean }).standalone === true
   )
-}
-
-function nextStateAfterAccessOk(): GateState {
-  const dismissed = localStorage.getItem(INSTALL_DISMISSED_KEY)
-  return isStandaloneNow() || dismissed ? 'ready' : 'show-install'
 }
 
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
@@ -31,8 +25,7 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function run() {
-      // Already permanently linked to a gym — re-check access on every load,
-      // same as the existing "Access Not Enabled" behavior.
+      // Already permanently linked to a gym — re-check access on every load.
       if (profile.gym_id) {
         const { data } = await supabase
           .from('gym_members')
@@ -46,12 +39,11 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
           setState('blocked')
           return
         }
-        setState(nextStateAfterAccessOk())
+        setState(isStandaloneNow() ? 'ready' : 'show-install')
         return
       }
 
-      // Not linked yet — only check if they actually arrived via a specific
-      // gym's install QR. Anyone else skips this entirely.
+      // Not linked yet — only relevant if they arrived via a gym's install QR.
       const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
       if (pendingGymId && profile.phone) {
         const { data } = await supabase.rpc('match_and_link_member', {
@@ -65,12 +57,12 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
           setState('blocked')
           return
         }
-        setState(nextStateAfterAccessOk())
+        setState(isStandaloneNow() ? 'ready' : 'show-install')
         return
       }
 
       // No gym context at all — completely unaffected, exactly as before.
-      setState(nextStateAfterAccessOk())
+      setState(isStandaloneNow() ? 'ready' : 'show-install')
     }
 
     void run()
@@ -101,14 +93,7 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
   }
 
   if (state === 'show-install') {
-    return (
-      <PwaInstallPrompt
-        onContinue={() => {
-          localStorage.setItem(INSTALL_DISMISSED_KEY, 'true')
-          setState('ready')
-        }}
-      />
-    )
+    return <PwaInstallPrompt onInstalled={() => setState('ready')} />
   }
 
   return <>{children}</>
