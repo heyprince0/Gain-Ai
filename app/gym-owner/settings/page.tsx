@@ -14,6 +14,7 @@ import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { getOwnerData, type Gym, type Plan } from '@/lib/gym-owner'
 import { supabase } from '@/lib/supabase'
 import { GymAttendanceQr } from '@/components/gym-attendance-qr'
+import { GymInstallQr } from '@/components/gym-install-qr'
 import { AppearanceCard } from '@/components/appearance-card'
 
 export default function SettingsPage() {
@@ -185,6 +186,20 @@ export default function SettingsPage() {
             <CardContent>
               {gym ? (
                 <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} />
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Install app QR code</CardTitle>
+              <CardDescription>New members scan this to install the GainAi app for your gym.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {gym ? (
+                <GymInstallQr gymId={gym.id} gymName={gym.gym_name} />
               ) : (
                 <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
               )}
