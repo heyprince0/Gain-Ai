@@ -1,94 +1,115 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { Download, Share, SquarePlus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import { PwaInstallPrompt } from './pwa-install-prompt'
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+const PENDING_GYM_KEY = 'gainai_pending_gym_id'
+const INSTALL_DISMISSED_KEY = 'gainai_install_dismissed'
+
+type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
+
+function isStandaloneNow() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  )
 }
 
-function isIOS() {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
+function nextStateAfterAccessOk(): GateState {
+  const dismissed = localStorage.getItem(INSTALL_DISMISSED_KEY)
+  return isStandaloneNow() || dismissed ? 'ready' : 'show-install'
 }
 
-export function PwaInstallPrompt({ onContinue }: { onContinue: () => void }) {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showIOSSteps, setShowIOSSteps] = useState(false)
+export function GymAccessGate({ children }: { children: React.ReactNode }) {
+  const { user, profile } = useAuth()
+  const [state, setState] = useState<GateState>('checking')
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+    if (!user || !profile) return
+    let cancelled = false
 
-  async function handleInstallClick() {
-    if (isIOS()) {
-      setShowIOSSteps(true)
-      return
+    async function run() {
+      // Already permanently linked to a gym — re-check access on every load,
+      // same as the existing "Access Not Enabled" behavior.
+      if (profile.gym_id) {
+        const { data } = await supabase
+          .from('gym_members')
+          .select('app_access')
+          .eq('linked_profile_id', user.id)
+          .eq('gym_id', profile.gym_id)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (cancelled) return
+        if (data && !data.app_access) {
+          setState('blocked')
+          return
+        }
+        setState(nextStateAfterAccessOk())
+        return
+      }
+
+      // Not linked yet — only check if they actually arrived via a specific
+      // gym's install QR. Anyone else skips this entirely.
+      const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
+      if (pendingGymId && profile.phone) {
+        const { data } = await supabase.rpc('match_and_link_member', {
+          p_gym_id: pendingGymId,
+          p_phone: profile.phone,
+        })
+        const member = Array.isArray(data) ? data[0] : data
+        localStorage.removeItem(PENDING_GYM_KEY)
+        if (cancelled) return
+        if (member && !member.app_access && !member.linked_to_other) {
+          setState('blocked')
+          return
+        }
+        setState(nextStateAfterAccessOk())
+        return
+      }
+
+      // No gym context at all — completely unaffected, exactly as before.
+      setState(nextStateAfterAccessOk())
     }
-    if (deferredPrompt) {
-      await deferredPrompt.prompt()
-      await deferredPrompt.userChoice
-      setDeferredPrompt(null)
-      onContinue()
-      return
+
+    void run()
+    return () => {
+      cancelled = true
     }
-    // No native prompt available — nothing more we can do here, let them through.
-    onContinue()
+  }, [user, profile])
+
+  if (state === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 rounded-full border-2 border-[#00ff88] border-t-transparent animate-spin" />
+      </div>
+    )
   }
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
-      <Card className="w-full max-w-md border-border/50">
-        <CardContent className="flex flex-col items-center gap-5 p-8 text-center">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
-            <Image src="/logo.png" alt="GainAi" width={40} height={40} className="rounded-lg" />
-          </div>
+  if (state === 'blocked') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-muted p-4 text-center">
+        <div className="max-w-sm">
+          <h1 className="text-xl font-semibold text-foreground">Access Not Enabled</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your gym administrator hasn't activated your GainAi access yet. Please check with your gym.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Get the best experience</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Install GainAi on your home screen for faster access and a full-screen app feel.
-            </p>
-          </div>
+  if (state === 'show-install') {
+    return (
+      <PwaInstallPrompt
+        onContinue={() => {
+          localStorage.setItem(INSTALL_DISMISSED_KEY, 'true')
+          setState('ready')
+        }}
+      />
+    )
+  }
 
-          {showIOSSteps ? (
-            <div className="w-full rounded-xl border border-border/50 bg-muted/40 p-4 text-left text-sm text-foreground">
-              <p className="mb-2 font-medium">Add GainAi to your home screen:</p>
-              <ol className="flex flex-col gap-2 text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <Share className="size-4 shrink-0" />
-                  Tap the Share button in Safari
-                </li>
-                <li className="flex items-center gap-2">
-                  <SquarePlus className="size-4 shrink-0" />
-                  Tap "Add to Home Screen"
-                </li>
-              </ol>
-              <Button variant="outline" className="mt-4 w-full" onClick={onContinue}>
-                Done
-              </Button>
-            </div>
-          ) : (
-            <div className="flex w-full flex-col gap-2">
-              <Button className="w-full" onClick={handleInstallClick}>
-                <Download data-icon="inline-start" />
-                Install GainAi App
-              </Button>
-              <button onClick={onContinue} className="text-sm text-muted-foreground hover:underline">
-                Continue in browser
-              </button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
+  return <>{children}</>
 }
