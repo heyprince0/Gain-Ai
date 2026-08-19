@@ -3,18 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
+import { canInstallPwa, isStandaloneDisplay } from '@/lib/pwa-install'
 import { PwaInstallPrompt } from './pwa-install-prompt'
 
 const PENDING_GYM_KEY = 'gainai_pending_gym_id'
 
 type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
-
-function isStandaloneNow() {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  )
-}
 
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -25,10 +19,6 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function run() {
-      // Fetch the profile row directly rather than depending on whatever
-      // shape useAuth() exposes — this only needs gym_id and phone, and
-      // this way it works regardless of what the auth context does or
-      // doesn't include.
       const { data: profileRow } = await supabase
         .from('profiles')
         .select('gym_id, phone')
@@ -37,15 +27,10 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
 
       if (cancelled) return
 
-      if (!profileRow) {
-        // Shouldn't happen at this point (profile setup already completed
-        // before this gate ever renders), but don't hang forever if it does.
-        setState(isStandaloneNow() ? 'ready' : 'show-install')
-        return
-      }
+      let blocked = false
 
-      // Already permanently linked to a gym — re-check access on every load.
-      if (profileRow.gym_id) {
+      if (profileRow?.gym_id) {
+        // Already permanently linked to a gym — re-check access on every load.
         const { data } = await supabase
           .from('gym_members')
           .select('app_access')
@@ -54,34 +39,37 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
           .is('deleted_at', null)
           .maybeSingle()
         if (cancelled) return
-        if (data && !data.app_access) {
-          setState('blocked')
-          return
+        if (data && !data.app_access) blocked = true
+      } else {
+        // Not linked yet — only relevant if they arrived via a gym's install QR.
+        const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
+        if (pendingGymId && profileRow?.phone) {
+          const { data } = await supabase.rpc('match_and_link_member', {
+            p_gym_id: pendingGymId,
+            p_phone: profileRow.phone,
+          })
+          const member = Array.isArray(data) ? data[0] : data
+          localStorage.removeItem(PENDING_GYM_KEY)
+          if (cancelled) return
+          if (member && !member.app_access && !member.linked_to_other) blocked = true
         }
-        setState(isStandaloneNow() ? 'ready' : 'show-install')
+      }
+
+      if (blocked) {
+        setState('blocked')
         return
       }
 
-      // Not linked yet — only relevant if they arrived via a gym's install QR.
-      const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
-      if (pendingGymId && profileRow.phone) {
-        const { data } = await supabase.rpc('match_and_link_member', {
-          p_gym_id: pendingGymId,
-          p_phone: profileRow.phone,
-        })
-        const member = Array.isArray(data) ? data[0] : data
-        localStorage.removeItem(PENDING_GYM_KEY)
-        if (cancelled) return
-        if (member && !member.app_access && !member.linked_to_other) {
-          setState('blocked')
-          return
-        }
-        setState(isStandaloneNow() ? 'ready' : 'show-install')
+      // Already installed, or on iOS / a browser that can't actually show
+      // an install prompt — skip the install step entirely either way.
+      if (isStandaloneDisplay()) {
+        setState('ready')
         return
       }
 
-      // No gym context at all — completely unaffected, exactly as before.
-      setState(isStandaloneNow() ? 'ready' : 'show-install')
+      const installable = await canInstallPwa()
+      if (cancelled) return
+      setState(installable ? 'show-install' : 'ready')
     }
 
     void run()
