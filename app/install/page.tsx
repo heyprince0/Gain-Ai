@@ -39,6 +39,7 @@ export default function InstallPage() {
       setLoading(false)
       return
     }
+    localStorage.setItem('gainai_pending_gym_id', gymId)
     supabase
       .rpc('get_gym_name', { p_gym_id: gymId })
       .then(({ data }) => {
