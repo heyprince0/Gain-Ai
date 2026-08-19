@@ -15,18 +15,27 @@ function isIOS() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
 }
 
-export function PwaInstallPrompt({ onContinue }: { onContinue: () => void }) {
+export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showIOSSteps, setShowIOSSteps] = useState(false)
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const promptHandler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
     }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+    // The browser's real signal that installation actually completed —
+    // this is what lets the screen go away, not a dismiss button.
+    const installedHandler = () => onInstalled()
+
+    window.addEventListener('beforeinstallprompt', promptHandler)
+    window.addEventListener('appinstalled', installedHandler)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', promptHandler)
+      window.removeEventListener('appinstalled', installedHandler)
+    }
+  }, [onInstalled])
 
   async function handleInstallClick() {
     if (isIOS()) {
@@ -34,14 +43,16 @@ export function PwaInstallPrompt({ onContinue }: { onContinue: () => void }) {
       return
     }
     if (deferredPrompt) {
+      setInstalling(true)
       await deferredPrompt.prompt()
-      await deferredPrompt.userChoice
+      const { outcome } = await deferredPrompt.userChoice
+      setInstalling(false)
       setDeferredPrompt(null)
-      onContinue()
-      return
+      if (outcome === 'accepted') onInstalled()
     }
-    // No native prompt available — nothing more we can do here, let them through.
-    onContinue()
+    // If no prompt is available yet, the browser is still preparing it —
+    // there's nothing to fall back to here, deliberately, since this step
+    // isn't meant to be skippable.
   }
 
   return (
@@ -53,9 +64,9 @@ export function PwaInstallPrompt({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Get the best experience</h1>
+            <h1 className="text-xl font-semibold text-foreground">One last step</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Install GainAi on your home screen for faster access and a full-screen app feel.
+              Install GainAi on your home screen to continue.
             </p>
           </div>
 
@@ -72,20 +83,15 @@ export function PwaInstallPrompt({ onContinue }: { onContinue: () => void }) {
                   Tap "Add to Home Screen"
                 </li>
               </ol>
-              <Button variant="outline" className="mt-4 w-full" onClick={onContinue}>
-                Done
-              </Button>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Then open GainAi from your home screen icon to continue.
+              </p>
             </div>
           ) : (
-            <div className="flex w-full flex-col gap-2">
-              <Button className="w-full" onClick={handleInstallClick}>
-                <Download data-icon="inline-start" />
-                Install GainAi App
-              </Button>
-              <button onClick={onContinue} className="text-sm text-muted-foreground hover:underline">
-                Continue in browser
-              </button>
-            </div>
+            <Button className="w-full" onClick={handleInstallClick} disabled={installing}>
+              <Download data-icon="inline-start" />
+              {installing ? 'Installing...' : 'Install GainAi App'}
+            </Button>
           )}
         </CardContent>
       </Card>
