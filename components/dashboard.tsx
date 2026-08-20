@@ -15,6 +15,7 @@ import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
 import { QrScannerDialog } from '@/components/qr-scanner-dialog'
+import { AccessRevokedModal } from '@/components/access-revoked-modal'
 
 interface Profile {
   id: string
@@ -106,6 +107,7 @@ export function Dashboard() {
   const [hasWorkoutPlan, setHasWorkoutPlan] = useState(false)
   const [showLogMeal, setShowLogMeal] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
+  const [accessRevoked, setAccessRevoked] = useState(false)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -207,6 +209,43 @@ export function Dashboard() {
     s = Math.min(Math.max(s, 0), 10)
     return Math.round(s)
   }
+
+  // While a member is actively using the dashboard, keep checking whether
+  // their gym has turned off their access — not just on page load. Polls
+  // periodically and also re-checks the moment they come back to the tab,
+  // so a revoked member doesn't keep working undetected for long.
+  useEffect(() => {
+    if (!user || !profile?.gym_id) return
+
+    let cancelled = false
+
+    async function checkAccess() {
+      const { data } = await supabase
+        .from('gym_members')
+        .select('app_access')
+        .eq('linked_profile_id', user!.id)
+        .eq('gym_id', profile!.gym_id)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (cancelled) return
+      if (data && !data.app_access) setAccessRevoked(true)
+    }
+
+    void checkAccess()
+    const interval = setInterval(checkAccess, 30000)
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') void checkAccess()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [user, profile?.gym_id])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -676,6 +715,8 @@ export function Dashboard() {
         onOpenChange={setShowScanner}
         userId={user?.id ?? ''}
       />
+
+      <AccessRevokedModal open={accessRevoked} />
     </div>
   )
 }
