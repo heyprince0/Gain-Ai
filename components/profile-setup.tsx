@@ -16,15 +16,9 @@ interface ProfileFormData {
   gender: string
 }
 
-  const calculateGoals = (
-  age: number,
-  weight: number,
-  height: number,
-  goal: string,
-  gender: string
-) => {
+function calculateGoals(age: number, weight: number, height: number, goal: string, gender: string) {
   const bmrConstant = gender === 'Male' ? 5 : -161
-  const bmr = (10 * weight) + (6.25 * height) - (5 * age) + bmrConstant
+  const bmr = 10 * weight + 6.25 * height - 5 * age + bmrConstant
   const tdee = Math.round(bmr * 1.55)
 
   let calories: number
@@ -36,14 +30,14 @@ interface ProfileFormData {
     calories = tdee
   }
 
-  const protein = Math.round(
-    weight * (goal === 'gain' ? 2.2 : goal === 'lose' ? 2.0 : 1.8)
-  )
+  const protein = Math.round(weight * (goal === 'gain' ? 2.2 : goal === 'lose' ? 2.0 : 1.8))
   const fat = Math.round((calories * 0.25) / 9)
   const carbs = Math.round((calories - protein * 4 - fat * 9) / 4)
   const fiber = Math.round((calories / 1000) * 14)
 
   return {
+    bmr: Math.round(bmr),
+    tdee,
     calorie_goal: calories,
     protein_goal: protein,
     carbs_goal: Math.max(carbs, 50),
@@ -64,7 +58,6 @@ export function ProfileSetup() {
     goal: 'maintain',
     gender: '',
   })
-
   const [height, setHeight] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,31 +69,30 @@ export function ProfileSetup() {
       if (!user) throw new Error('User not authenticated')
 
       const heightInCm = parseFloat(height)
+      const goals = calculateGoals(formData.age, formData.weight, heightInCm, formData.goal, formData.gender)
 
-      const goals = calculateGoals(
-  formData.age,
-  formData.weight,
-  heightInCm,
-  formData.goal,
-  formData.gender  // ← add this
-)
       const { error: err } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          name: formData.fullName,
-          phone: formData.phone || null,
-          age: parseInt(formData.age.toString()),
-          weight: parseFloat(formData.weight.toString()),
-          height: parseFloat(height),
-          goal: formData.goal,
-          gender: formData.gender || null,
-          calorie_goal: goals.calorie_goal,
-          protein_goal: goals.protein_goal,
-          carbs_goal: goals.carbs_goal,
-          fat_goal: goals.fat_goal,
-          fiber_goal: goals.fiber_goal,
-        }, { onConflict: 'id' })
+        .upsert(
+          {
+            id: user.id,
+            name: formData.fullName,
+            phone: formData.phone || null,
+            age: parseInt(formData.age.toString()),
+            weight: parseFloat(formData.weight.toString()),
+            height: heightInCm,
+            goal: formData.goal,
+            gender: formData.gender || null,
+            bmr: goals.bmr,
+            tdee: goals.tdee,
+            calorie_goal: goals.calorie_goal,
+            protein_goal: goals.protein_goal,
+            carbs_goal: goals.carbs_goal,
+            fat_goal: goals.fat_goal,
+            fiber_goal: goals.fiber_goal,
+          },
+          { onConflict: 'id' }
+        )
 
       if (err) throw err
 
@@ -118,16 +110,12 @@ export function ProfileSetup() {
       <Card className='w-full max-w-md border-border/50'>
         <CardHeader className='space-y-2 text-center'>
           <CardTitle className='text-2xl'>Complete Your Profile</CardTitle>
-          <CardDescription>
-            Help us personalize your fitness journey
-          </CardDescription>
+          <CardDescription>Help us personalize your fitness journey</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className='space-y-4'>
             <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>
-                Full Name
-              </label>
+              <label className='block text-sm font-medium text-foreground mb-1'>Full Name</label>
               <input
                 type='text'
                 value={formData.fullName}
@@ -139,9 +127,7 @@ export function ProfileSetup() {
             </div>
 
             <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>
-                Phone Number
-              </label>
+              <label className='block text-sm font-medium text-foreground mb-1'>Phone Number</label>
               <input
                 type='tel'
                 value={formData.phone}
@@ -153,9 +139,7 @@ export function ProfileSetup() {
             </div>
 
             <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>
-                Gender
-              </label>
+              <label className='block text-sm font-medium text-foreground mb-1'>Gender</label>
               <select
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
@@ -170,9 +154,7 @@ export function ProfileSetup() {
 
             <div className='grid grid-cols-2 gap-3'>
               <div>
-                <label className='block text-sm font-medium text-foreground mb-1'>
-                  Age
-                </label>
+                <label className='block text-sm font-medium text-foreground mb-1'>Age</label>
                 <input
                   type='number'
                   value={formData.age}
@@ -184,9 +166,7 @@ export function ProfileSetup() {
                 />
               </div>
               <div>
-                <label className='block text-sm font-medium text-foreground mb-1'>
-                  Weight (kg)
-                </label>
+                <label className='block text-sm font-medium text-foreground mb-1'>Weight (kg)</label>
                 <input
                   type='number'
                   value={formData.weight}
@@ -200,13 +180,12 @@ export function ProfileSetup() {
             </div>
 
             <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>
-                Height (cm)
-              </label>
+              <label className='block text-sm font-medium text-foreground mb-1'>Height (cm)</label>
               <input
                 type='number'
                 placeholder='Height in cm (e.g. 175)'
-                min='100' max='250'
+                min='100'
+                max='250'
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
                 className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm'
@@ -215,9 +194,7 @@ export function ProfileSetup() {
             </div>
 
             <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>
-                Fitness Goal
-              </label>
+              <label className='block text-sm font-medium text-foreground mb-1'>Fitness Goal</label>
               <select
                 value={formData.goal}
                 onChange={(e) => setFormData({ ...formData, goal: e.target.value as any })}
@@ -236,11 +213,7 @@ export function ProfileSetup() {
               </div>
             )}
 
-            <Button
-              type='submit'
-              disabled={loading}
-              className='w-full rounded-lg'
-            >
+            <Button type='submit' disabled={loading} className='w-full rounded-lg'>
               {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               {loading ? 'Setting up...' : 'Complete Setup'}
             </Button>
