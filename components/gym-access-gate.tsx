@@ -6,8 +6,6 @@ import { supabase } from '@/lib/supabase'
 import { canInstallPwa, isStandaloneDisplay } from '@/lib/pwa-install'
 import { PwaInstallPrompt } from './pwa-install-prompt'
 
-const PENDING_GYM_KEY = 'gainai_pending_gym_id'
-
 type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
 
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
@@ -30,7 +28,8 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
       let blocked = false
 
       if (profileRow?.gym_id) {
-        // Already permanently linked to a gym — re-check access on every load.
+        // Already linked to a gym — re-check access on every load, since
+        // an owner may have turned access off after the initial link.
         const { data } = await supabase
           .from('gym_members')
           .select('app_access')
@@ -40,19 +39,17 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
           .maybeSingle()
         if (cancelled) return
         if (data && !data.app_access) blocked = true
-      } else {
-        // Not linked yet — only relevant if they arrived via a gym's install QR.
-        const pendingGymId = localStorage.getItem(PENDING_GYM_KEY)
-        if (pendingGymId && profileRow?.phone) {
-          const { data } = await supabase.rpc('match_and_link_member', {
-            p_gym_id: pendingGymId,
-            p_phone: profileRow.phone,
-          })
-          const member = Array.isArray(data) ? data[0] : data
-          localStorage.removeItem(PENDING_GYM_KEY)
-          if (cancelled) return
-          if (member && !member.app_access && !member.linked_to_other) blocked = true
-        }
+      } else if (profileRow?.phone) {
+        // Not linked yet — check this phone number against every gym's
+        // member list, not just one scoped to a QR they may or may not
+        // have scanned. A gym owner may have added this number before the
+        // member ever signed up. No match anywhere → completely unaffected.
+        const { data } = await supabase.rpc('match_and_link_member_by_phone', {
+          p_phone: profileRow.phone,
+        })
+        const member = Array.isArray(data) ? data[0] : data
+        if (cancelled) return
+        if (member && !member.app_access && !member.linked_to_other) blocked = true
       }
 
       if (blocked) {
@@ -60,8 +57,6 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Already installed, or on iOS / a browser that can't actually show
-      // an install prompt — skip the install step entirely either way.
       if (isStandaloneDisplay()) {
         setState('ready')
         return
