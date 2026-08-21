@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, TrendingUp, ScanLine, Activity, User } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, ScanLine, Activity, User, CreditCard } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -8,7 +8,6 @@ export function BottomNav() {
   const pathname = usePathname()
   const isActive = (path: string) => pathname === path
 
-  // detect theme on client
   const [isDark, setIsDark] = useState(false)
   useEffect(() => {
     setIsDark(
@@ -20,15 +19,18 @@ export function BottomNav() {
   const inactiveColor = isDark ? '#6b7280' : '#9ca3af'
   const activeColor = '#00ff88'
 
+  // All five tabs – order: Dashboard, Progress, Body, Membership, Profile
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TrendingUp, label: 'Progress', path: '/progress' },
     { icon: Activity, label: 'Body', path: '/body-scanner' },
+    { icon: CreditCard, label: 'Membership', path: '/membership' },
     { icon: User, label: 'Profile', path: '/profile' },
   ]
 
-  // Split items so the center FAB sits between the 2nd and 3rd tab
+  // Left side: first two (Dashboard, Progress)
   const leftItems = navItems.slice(0, 2)
+  // Right side: remaining three (Body, Membership, Profile)
   const rightItems = navItems.slice(2)
 
   return (
@@ -79,7 +81,7 @@ export function BottomNav() {
           />
         ))}
 
-        {/* Spacer so the two side groups don't collide under the center FAB */}
+        {/* Spacer for the center FAB */}
         <div style={{ width: '60px', flexShrink: 0 }} />
 
         {rightItems.map(({ icon: Icon, label, path }) => (
