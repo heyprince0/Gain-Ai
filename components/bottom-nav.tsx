@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, TrendingUp, ScanLine, Activity, User, CreditCard } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, ScanLine, Activity, User, CreditCard, ShoppingBag } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -19,19 +19,18 @@ export function BottomNav() {
   const inactiveColor = isDark ? '#6b7280' : '#9ca3af'
   const activeColor = '#00ff88'
 
-  // All five tabs – order: Dashboard, Progress, Body, Membership, Profile
+  // Six tabs, split into three left and three right
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TrendingUp, label: 'Progress', path: '/progress' },
     { icon: Activity, label: 'Body', path: '/body-scanner' },
     { icon: CreditCard, label: 'Membership', path: '/membership' },
+    { icon: ShoppingBag, label: 'Shop', path: '/shop' },
     { icon: User, label: 'Profile', path: '/profile' },
   ]
 
-  // Left side: first two (Dashboard, Progress)
-  const leftItems = navItems.slice(0, 2)
-  // Right side: remaining three (Body, Membership, Profile)
-  const rightItems = navItems.slice(2)
+  const leftItems = navItems.slice(0, 3) // Dashboard, Progress, Body
+  const rightItems = navItems.slice(3)   // Membership, Shop, Profile
 
   return (
     <div
