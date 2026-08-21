@@ -19,18 +19,17 @@ export function BottomNav() {
   const inactiveColor = isDark ? '#6b7280' : '#9ca3af'
   const activeColor = '#00ff88'
 
-  // Six tabs, split into three left and three right
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: TrendingUp, label: 'Progress', path: '/progress' },
-    { icon: Activity, label: 'Body', path: '/body-scanner' },
-    { icon: CreditCard, label: 'Membership', path: '/membership' },
-    { icon: ShoppingBag, label: 'Shop', path: '/shop' },
-    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: LayoutDashboard, path: '/dashboard' },
+    { icon: TrendingUp, path: '/progress' },
+    { icon: Activity, path: '/body-scanner' },
+    { icon: CreditCard, path: '/membership' },
+    { icon: ShoppingBag, path: '/shop' },
+    { icon: User, path: '/profile' },
   ]
 
-  const leftItems = navItems.slice(0, 3) // Dashboard, Progress, Body
-  const rightItems = navItems.slice(3)   // Membership, Shop, Profile
+  const leftItems = navItems.slice(0, 3)
+  const rightItems = navItems.slice(3)
 
   return (
     <div
@@ -57,9 +56,9 @@ export function BottomNav() {
           justifyContent: 'space-between',
           width: '100%',
           maxWidth: '440px',
-          height: '68px',
+          height: '64px',
           borderRadius: '28px',
-          padding: '0 10px',
+          padding: '0 12px',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           boxShadow: isDark
@@ -68,11 +67,10 @@ export function BottomNav() {
           pointerEvents: 'auto',
         }}
       >
-        {leftItems.map(({ icon: Icon, label, path }) => (
+        {leftItems.map(({ icon: Icon, path }) => (
           <NavButton
             key={path}
             Icon={Icon}
-            label={label}
             active={isActive(path)}
             activeColor={activeColor}
             inactiveColor={inactiveColor}
@@ -81,13 +79,12 @@ export function BottomNav() {
         ))}
 
         {/* Spacer for the center FAB */}
-        <div style={{ width: '60px', flexShrink: 0 }} />
+        <div style={{ width: '48px', flexShrink: 0 }} />
 
-        {rightItems.map(({ icon: Icon, label, path }) => (
+        {rightItems.map(({ icon: Icon, path }) => (
           <NavButton
             key={path}
             Icon={Icon}
-            label={label}
             active={isActive(path)}
             activeColor={activeColor}
             inactiveColor={inactiveColor}
@@ -125,7 +122,7 @@ export function BottomNav() {
             e.currentTarget.style.transform = 'translateX(-50%) scale(1)'
           }}
         >
-          <ScanLine size={24} color="#000" strokeWidth={2.25} />
+          <ScanLine size={26} color="#000" strokeWidth={2.25} />
         </button>
       </nav>
     </div>
@@ -134,14 +131,12 @@ export function BottomNav() {
 
 function NavButton({
   Icon,
-  label,
   active,
   activeColor,
   inactiveColor,
   onClick,
 }: {
   Icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>
-  label: string
   active: boolean
   activeColor: string
   inactiveColor: string
@@ -153,41 +148,19 @@ function NavButton({
       onClick={onClick}
       style={{
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '2px',
         background: 'none',
         border: 'none',
         cursor: 'pointer',
-        flex: 1,
-        padding: '8px 4px',
+        width: '40px',
+        height: '40px',
+        borderRadius: '12px',
+        transition: 'background 0.2s ease',
+        background: active ? 'rgba(0,255,136,0.15)' : 'transparent',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '40px',
-          height: '28px',
-          borderRadius: '14px',
-          background: active ? 'rgba(0,255,136,0.15)' : 'transparent',
-          transition: 'background 0.2s ease',
-        }}
-      >
-        <Icon size={20} strokeWidth={active ? 2.5 : 2} color={active ? activeColor : inactiveColor} />
-      </div>
-      <span
-        style={{
-          fontSize: '10px',
-          fontWeight: active ? 600 : 500,
-          color: active ? activeColor : inactiveColor,
-          transition: 'color 0.2s ease',
-        }}
-      >
-        {label}
-      </span>
+      <Icon size={24} strokeWidth={active ? 2.5 : 2} color={active ? activeColor : inactiveColor} />
     </button>
   )
 }
