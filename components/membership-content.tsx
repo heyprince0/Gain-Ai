@@ -5,9 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Clock, User, Loader2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { CalendarDays, Clock, Loader2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
 
-// Helper to format date
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '—'
   return new Intl.DateTimeFormat('en-IN', {
@@ -17,14 +16,11 @@ const formatDate = (dateStr: string) => {
   }).format(new Date(dateStr))
 }
 
-// Helper to get membership status
 const getMembershipStatus = (endDate: string) => {
   if (!endDate) return { label: 'No end date', color: 'bg-gray-500', icon: AlertCircle }
-  
   const now = new Date()
   const end = new Date(endDate)
   const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  
   if (diffDays < 0) {
     return { label: 'Expired', color: 'bg-red-500', icon: XCircle }
   } else if (diffDays <= 7) {
@@ -70,7 +66,6 @@ export function MembershipContent() {
         setLoading(true)
         setError(null)
 
-        // 1. Get the member's phone from their profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('phone')
@@ -84,7 +79,6 @@ export function MembershipContent() {
           return
         }
 
-        // 2. Find gym membership by phone number
         const { data: memberData, error: memberError } = await supabase
           .from('gym_members')
           .select(`
@@ -104,7 +98,6 @@ export function MembershipContent() {
           .single()
 
         if (memberError) {
-          // If no member found, it might be a gym owner or unlinked user
           setError('No gym membership found for this phone number.')
           setLoading(false)
           return
@@ -112,18 +105,16 @@ export function MembershipContent() {
 
         setMembership(memberData as GymMembership)
 
-        // 3. Fetch attendance for this member
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('gym_attendance')
           .select('attendance_date, scanned_at')
           .eq('member_id', memberData.id)
           .order('attendance_date', { ascending: false })
-          .limit(30) // Show last 30 days
+          .limit(30)
 
         if (!attendanceError && attendanceData) {
           setAttendance(attendanceData as AttendanceRecord[])
         }
-
       } catch (err) {
         console.error('Error fetching membership:', err)
         setError('Failed to load membership data')
@@ -177,17 +168,11 @@ export function MembershipContent() {
 
   return (
     <div className="mx-auto max-w-2xl w-full px-4 py-6 pb-24">
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          My Membership
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          View your gym subscription and attendance
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">My Membership</h1>
+        <p className="text-sm text-muted-foreground mt-1">View your gym subscription and attendance</p>
       </div>
 
-      {/* Membership Card */}
       <Card className="rounded-2xl border-border/50 mb-6">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between">
@@ -206,9 +191,7 @@ export function MembershipContent() {
                 {membership.gym_subscription_plans?.plan_name || 'Basic'}
               </p>
               {membership.gym_subscription_plans?.price && (
-                <p className="text-sm text-muted-foreground">
-                  ₹{membership.gym_subscription_plans.price}/month
-                </p>
+                <p className="text-sm text-muted-foreground">₹{membership.gym_subscription_plans.price}/month</p>
               )}
             </div>
             <div className="p-3 rounded-xl bg-muted/30">
@@ -241,7 +224,6 @@ export function MembershipContent() {
         </CardContent>
       </Card>
 
-      {/* Attendance Card */}
       <Card className="rounded-2xl border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
@@ -257,13 +239,8 @@ export function MembershipContent() {
           ) : (
             <div className="space-y-2">
               {attendance.map((record) => (
-                <div
-                  key={record.attendance_date}
-                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30"
-                >
-                  <span className="text-sm font-medium text-foreground">
-                    {formatDate(record.attendance_date)}
-                  </span>
+                <div key={record.attendance_date} className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
+                  <span className="text-sm font-medium text-foreground">{formatDate(record.attendance_date)}</span>
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {new Intl.DateTimeFormat('en-IN', {
