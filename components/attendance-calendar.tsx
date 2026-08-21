@@ -12,6 +12,11 @@ const TIME_FORMAT = new Intl.DateTimeFormat('en-IN', {
   minute: '2-digit',
   hour12: true,
 })
+const DATE_FORMAT = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
 
 function toISODate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -33,11 +38,17 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
   })
   const [attendance, setAttendance] = useState<Map<string, string>>(new Map()) // iso date -> scanned_at
   const [loading, setLoading] = useState(true)
+  const [selectedDateInfo, setSelectedDateInfo] = useState<{ iso: string; scannedAt: string } | null>(null)
 
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
   const todayStr = todayISOInIST()
   const isCurrentMonthView = year === new Date().getFullYear() && month === new Date().getMonth()
+
+  // Clear selection when month changes
+  useEffect(() => {
+    setSelectedDateInfo(null)
+  }, [year, month])
 
   useEffect(() => {
     let cancelled = false
@@ -81,6 +92,14 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
   const totalAttended = attendance.size
   const todayScannedAt = attendance.get(todayStr)
 
+  const handleDateClick = (iso: string, scannedAt: string) => {
+    if (selectedDateInfo?.iso === iso) {
+      setSelectedDateInfo(null) // toggle off if same date clicked again
+    } else {
+      setSelectedDateInfo({ iso, scannedAt })
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -118,16 +137,21 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
           const scannedAt = attendance.get(cell.iso)
           const isAttended = !!scannedAt
           const isToday = cell.iso === todayStr
+          const isSelected = selectedDateInfo?.iso === cell.iso
           const tooltip = isAttended ? `Checked in at ${TIME_FORMAT.format(new Date(scannedAt))}` : undefined
 
           return (
             <div key={cell.iso} className="flex items-center justify-center py-0.5">
               <span
                 title={tooltip}
+                onClick={() => isAttended && handleDateClick(cell.iso, scannedAt)}
                 className={[
-                  'flex size-7 items-center justify-center rounded-full text-xs',
-                  isAttended ? 'bg-primary text-primary-foreground font-medium cursor-default' : 'text-foreground',
+                  'flex size-7 items-center justify-center rounded-full text-xs transition-colors cursor-default',
+                  isAttended
+                    ? 'bg-primary text-primary-foreground font-medium hover:opacity-80'
+                    : 'text-foreground',
                   isToday && !isAttended ? 'border border-primary text-primary' : '',
+                  isSelected ? 'ring-2 ring-offset-1 ring-primary' : '',
                 ].join(' ')}
               >
                 {cell.day}
@@ -137,6 +161,7 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
         })}
       </div>
 
+      {/* Today's status (only if current month) */}
       {isCurrentMonthView && (
         <div
           className={[
@@ -150,6 +175,17 @@ export function AttendanceCalendar({ memberId }: { memberId: string }) {
           {todayScannedAt
             ? `Checked in today at ${TIME_FORMAT.format(new Date(todayScannedAt))}`
             : 'Not checked in yet today'}
+        </div>
+      )}
+
+      {/* Selected date info (shown when a date with attendance is clicked) */}
+      {selectedDateInfo && (
+        <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+          <CheckCircle2 className="size-3.5 shrink-0" />
+          <span>
+            Checked in on <span className="font-medium">{DATE_FORMAT.format(new Date(selectedDateInfo.iso))}</span> at{' '}
+            <span className="font-mono">{TIME_FORMAT.format(new Date(selectedDateInfo.scannedAt))}</span>
+          </span>
         </div>
       )}
 
