@@ -74,11 +74,18 @@ export function MembershipContent() {
 
         if (profileError) throw profileError
         if (!profile?.phone) {
-          setError('No phone number linked to your account. Please contact your gym.')
+          setError('Add your phone number in your profile to see your gym membership.')
           setLoading(false)
           return
         }
 
+        // The link between this profile and a gym_members row is already
+        // established elsewhere (right after profile setup, via the app's
+        // gym-access check) — this just reads that existing link through
+        // linked_profile_id, which is also exactly what RLS scopes access
+        // to. Matching by phone text instead was fragile (a formatting
+        // difference from the owner's entry would silently fail) and,
+        // combined with a null-check bug below, was never actually working.
         const { data: memberData, error: memberError } = await supabase
           .from('gym_members')
           .select(`
@@ -93,12 +100,16 @@ export function MembershipContent() {
               price
             )
           `)
-          .eq('phone', profile.phone)
-          .eq('deleted_at', null)
-          .single()
+          .eq('linked_profile_id', user.id)
+          .is('deleted_at', null)
+          .maybeSingle()
 
-        if (memberError) {
-          setError('No gym membership found for this phone number.')
+        if (memberError) throw memberError
+
+        if (!memberData) {
+          setError(
+            "Your phone number hasn't been added to a gym yet. Please contact your gym, or check that the number in your profile matches what they have on file."
+          )
           setLoading(false)
           return
         }
