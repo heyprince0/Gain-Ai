@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
+import { PhoneNotLinkedModal } from '@/components/phone-not-linked-modal'
 
 interface ProfileFormData {
   fullName: string
@@ -50,6 +51,7 @@ export function ProfileSetup() {
   const { user, refreshProfile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPhoneNotLinkedModal, setShowPhoneNotLinkedModal] = useState(false)
   const [formData, setFormData] = useState<ProfileFormData>({
     fullName: '',
     phone: '',
@@ -68,6 +70,36 @@ export function ProfileSetup() {
     try {
       if (!user) throw new Error('User not authenticated')
 
+      // --- Check if phone number exists in gym_members ---
+      const { data: memberData, error: memberError } = await supabase
+        .from('gym_members')
+        .select('id, linked_profile_id')
+        .eq('phone', formData.phone)
+        .eq('deleted_at', null)
+        .maybeSingle()
+
+      if (memberError) {
+        console.error('Error checking gym membership:', memberError)
+        setError('Unable to verify gym membership. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      if (!memberData) {
+        // Phone number not found in any gym
+        setShowPhoneNotLinkedModal(true)
+        setLoading(false)
+        return
+      }
+
+      // Phone number exists, but might already be linked to another profile
+      if (memberData.linked_profile_id && memberData.linked_profile_id !== user.id) {
+        setError('This phone number is already linked to another account.')
+        setLoading(false)
+        return
+      }
+
+      // Phone is valid — proceed with profile creation
       const heightInCm = parseFloat(height)
       const goals = calculateGoals(formData.age, formData.weight, heightInCm, formData.goal, formData.gender)
 
@@ -95,6 +127,14 @@ export function ProfileSetup() {
         )
 
       if (err) throw err
+
+      // --- Link the profile to the gym member record ---
+      if (memberData && !memberData.linked_profile_id) {
+        await supabase
+          .from('gym_members')
+          .update({ linked_profile_id: user.id })
+          .eq('id', memberData.id)
+      }
 
       await refreshProfile()
     } catch (err) {
@@ -220,6 +260,11 @@ export function ProfileSetup() {
           </form>
         </CardContent>
       </Card>
+
+      <PhoneNotLinkedModal
+        open={showPhoneNotLinkedModal}
+        onOpenChange={setShowPhoneNotLinkedModal}
+      />
     </div>
   )
 }
