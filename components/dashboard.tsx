@@ -16,7 +16,6 @@ import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
 import { QrScannerDialog } from '@/components/qr-scanner-dialog'
 import { AccessRevokedModal } from '@/components/access-revoked-modal'
-import { PhoneNotLinkedModal } from '@/components/phone-not-linked-modal'
 
 interface Profile {
   id: string
@@ -105,7 +104,6 @@ export function Dashboard() {
   const [showLogMeal, setShowLogMeal] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [accessRevoked, setAccessRevoked] = useState(false)
-  const [showPhoneNotLinkedModal, setShowPhoneNotLinkedModal] = useState(false)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -208,7 +206,7 @@ export function Dashboard() {
     return Math.round(s)
   }
 
-  // Check app_access periodically
+  // Check app_access periodically – this is the only access check we keep
   useEffect(() => {
     if (!user || !profile?.gym_id) return
 
@@ -242,41 +240,6 @@ export function Dashboard() {
     }
   }, [user, profile?.gym_id])
 
-  // Check if the user's phone is still linked to a gym
-  useEffect(() => {
-    if (!user || !profile?.phone) return
-
-    let cancelled = false
-
-    async function checkPhoneLinked() {
-      const { data } = await supabase
-        .from('gym_members')
-        .select('id')
-        .eq('phone', profile.phone!)
-        .eq('deleted_at', null)
-        .maybeSingle()
-
-      if (cancelled) return
-      if (!data) {
-        setShowPhoneNotLinkedModal(true)
-      }
-    }
-
-    void checkPhoneLinked()
-    const interval = setInterval(checkPhoneLinked, 30000)
-
-    function handleVisibility() {
-      if (document.visibilityState === 'visible') void checkPhoneLinked()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [user, profile?.phone])
-
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return
@@ -293,9 +256,120 @@ export function Dashboard() {
         }
         if (profileData) setProfile(profileData)
 
-        // ... rest of the data fetching (unchanged)
-        // (I'll keep the rest as per original to save space, but it's the same)
-        // ...
+        const getTodayIST = () => {
+          const now = new Date()
+          const istDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).format(now)
+          const istMidnightUTC = new Date(`${istDate}T00:00:00+05:30`)
+          return istMidnightUTC.toISOString()
+        }
+
+        const getWeekStart = () => {
+          const now = new Date()
+          const day = now.getDay()
+          const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+          const monday = new Date(now.setDate(diff))
+          monday.setHours(0, 0, 0, 0)
+          return monday
+        }
+        const weekStart = getWeekStart()
+
+        const { data: todayData, error: todayError } = await supabase
+          .from('food_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('scanned_at', getTodayIST())
+          .order('scanned_at', { ascending: false })
+
+        if (todayError) console.error('Today scans error:', todayError)
+        const todayScans = todayData || []
+        setTodayScans(todayScans)
+
+        const todayCalories = todayScans.reduce((sum, s) => sum + (s.calories ?? 0), 0) ?? 0
+        const todayProtein = todayScans.reduce((sum, s) => sum + (s.protein ?? 0), 0) ?? 0
+        const todayCarbs = todayScans.reduce((sum, s) => sum + (s.carbs ?? 0), 0) ?? 0
+        const todayFats = todayScans.reduce((sum, s) => sum + (s.fats ?? 0), 0) ?? 0
+        setTodayStats({ calories: todayCalories, protein: todayProtein, carbs: todayCarbs, fats: todayFats })
+
+        const { data: weekData, error: weekError } = await supabase
+          .from('food_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('scanned_at', weekStart.toISOString())
+          .order('scanned_at', { ascending: false })
+
+        if (weekError) console.error('Week scans error:', weekError)
+        const weeks = weekData || []
+        setWeekScans(weeks)
+        setWeekCount(weeks.length)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekEnd.getDate() + 6)
+        const label = `${weekStart.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' })} - ${weekEnd.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' })}`
+        setWeekLabel(label)
+
+        const { data: foodData, error: foodError } = await supabase
+          .from('food_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('scanned_at', { ascending: false })
+        if (foodError) console.error('Food scans error:', foodError)
+        if (foodData) setFoodScans(foodData)
+
+        const { data: dailyLogData, error: dailyLogError } = await supabase
+          .from('daily_nutrition_log')
+          .select('log_date, scan_count, total_calories, total_protein, total_carbs, total_fats')
+          .eq('user_id', user.id)
+          .order('log_date', { ascending: false })
+        if (dailyLogError) console.error('Daily nutrition log error:', dailyLogError)
+        if (dailyLogData) setDailyLogs(dailyLogData)
+
+        const { data: bodyData, error: bodyError } = await supabase
+          .from('body_scans')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('scanned_at', { ascending: false })
+          .limit(1)
+
+        if (bodyError) console.error('Body scan error:', bodyError)
+        if (bodyData && bodyData.length > 0) setBodyScan(bodyData[0])
+
+        const { data: planData, error: planError } = await supabase
+          .from('workout_plans')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (planError) console.error('Workout plan error:', planError)
+        const hasPlan = Array.isArray(planData) && planData.length > 0
+        setHasWorkoutPlan(hasPlan)
+
+        const istDateKey = (iso: string) =>
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(iso))
+
+        const todayDate = istDateKey(new Date().toISOString())
+        const yesterdayDate = istDateKey(new Date(Date.now() - 86400000).toISOString())
+
+        const { data: fuelData, error: fuelError } = await supabase
+          .from('fuel_scores')
+          .select('score_date, fuel_score')
+          .eq('user_id', user.id)
+          .in('score_date', [todayDate, yesterdayDate])
+
+        if (fuelError) console.error('Fuel scores error:', fuelError)
+        const todayFuel = fuelData?.find((r) => r.score_date === todayDate)?.fuel_score ?? null
+        const yesterdayFuel = fuelData?.find((r) => r.score_date === yesterdayDate)?.fuel_score ?? null
+        setTodayFuelScore(todayFuel)
+        setYesterdayFuelScore(yesterdayFuel)
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -306,19 +380,359 @@ export function Dashboard() {
     fetchData()
   }, [user])
 
-  // ... rest of the component (render, macro chip, etc.) is unchanged, except we add the modal at the end
+  if (loading) {
+    return (
+      <div className='flex min-h-screen items-center justify-center'>
+        <Loader2 className='h-8 w-8 animate-spin text-primary' />
+      </div>
+    )
+  }
 
-  // Return JSX with the modal added
+  if (!profile) return null
+
+  const calPercent = profile.calorie_goal
+    ? Math.round((todayStats.calories / profile.calorie_goal) * 100)
+    : 0
+  const proteinPercent = profile.protein_goal
+    ? Math.round((todayStats.protein / profile.protein_goal) * 100)
+    : 0
+  const carbsPercent = profile.carbs_goal
+    ? Math.round((todayStats.carbs / profile.carbs_goal) * 100)
+    : 0
+  const fatsPercent = profile.fat_goal
+    ? Math.round((todayStats.fats / profile.fat_goal) * 100)
+    : 0
+
+  const initials = (profile.name || displayName)
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('') || ''
+
+  const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+
+    const days = new Set(logs.filter((l) => l.scan_count > 0).map((l) => l.log_date))
+    if (hasScannedToday) days.add(todayKey)
+
+    if (days.size === 0) return 0
+
+    let cursor = new Date(`${todayKey}T00:00:00+05:30`)
+    if (!days.has(todayKey)) {
+      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
+    }
+
+    let streak = 0
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+
+    while (true) {
+      const key = formatter.format(cursor)
+      if (!days.has(key)) break
+      streak += 1
+      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
+    }
+    return streak
+  }
+
+  const streak = calculateStreak(dailyLogs, todayScans.length > 0)
+  const scannedToday = todayScans.length > 0
+
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
-      {/* ... all existing JSX ... */}
-      {/* At the very bottom, before the closing </> */}
-      <PhoneNotLinkedModal
-        open={showPhoneNotLinkedModal}
-        onOpenChange={setShowPhoneNotLinkedModal}
+      {/* Header */}
+      <div className='mb-8 flex items-start justify-between gap-3'>
+        <div>
+          <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+            Welcome, {displayName}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {"Today's fitness overview"}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowScanner(true)}
+          aria-label="Scan gym attendance QR"
+          className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
+        >
+          <ScanLine className='h-5 w-5' />
+        </button>
+      </div>
+
+      {/* Streak Strip */}
+      <div className='flex items-center gap-2 mb-3 text-sm'>
+        <Flame className={`h-4 w-4 flex-shrink-0 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+        <span className='font-semibold text-foreground'>
+          {streak} day{streak === 1 ? '' : 's'} streak
+        </span>
+        {streak > 0 && !scannedToday && (
+          <Badge
+            className='rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500'
+            variant='secondary'
+          >
+            At risk
+          </Badge>
+        )}
+      </div>
+
+      {/* Today's Workout Card */}
+      <TodayWorkoutCard
+        userId={user?.id ?? ''}
+        onCreatePlan={() => setShowPlanner(true)}
       />
+
+      {/* Calorie Arc Card */}
+      <Card className='rounded-2xl border-border/50 mb-6 bg-gradient-to-br from-card to-card/80'>
+        <CardContent className='p-8'>
+          <div className='flex flex-col items-center'>
+            <p className='text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6'>
+              Calorie Summary
+            </p>
+            
+            <svg viewBox='0 0 200 120' className='w-full max-w-sm mb-6' style={{ height: 'auto' }}>
+              <path
+                d='M 20 100 A 80 80 0 0 1 180 100'
+                stroke='currentColor'
+                strokeWidth='8'
+                fill='none'
+                className='text-muted/20'
+                strokeLinecap='round'
+              />
+              <path
+                d='M 20 100 A 80 80 0 0 1 180 100'
+                stroke='#00ff88'
+                strokeWidth='8'
+                fill='none'
+                strokeDasharray={`${(calPercent / 100) * 251.33} 251.33`}
+                strokeLinecap='round'
+                opacity='0.8'
+              />
+            </svg>
+
+            <div className='text-center'>
+              <div className='text-4xl font-bold text-foreground mb-1'>
+                {profile.calorie_goal - todayStats.calories < 0 
+                  ? 0 
+                  : Math.round(profile.calorie_goal - todayStats.calories)}
+              </div>
+              <p className='text-xs text-muted-foreground mb-4'>
+                kcal left ({todayStats.calories} of {profile.calorie_goal})
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Macro Chips */}
+      <div className='grid grid-cols-3 gap-3 mb-6'>
+        <MacroChip 
+          label='Protein' 
+          current={Math.round(todayStats.protein)} 
+          goal={profile.protein_goal}
+          icon={Target}
+          color='#3b82f6'
+        />
+        <MacroChip 
+          label='Carbs' 
+          current={Math.round(todayStats.carbs)} 
+          goal={profile.carbs_goal ?? 0}
+          icon={Flame}
+          color='#f59e0b'
+        />
+        <MacroChip 
+          label='Fats' 
+          current={Math.round(todayStats.fats)} 
+          goal={profile.fat_goal ?? 0}
+          icon={Activity}
+          color='#ec4899'
+        />
+      </div>
+
+      {/* Body Stats & Fuel Score */}
+      <div className='grid grid-cols-2 gap-3 mb-6'>
+        <Card className='rounded-2xl border-border/50'>
+          <CardContent className='p-4'>
+            <div className='flex items-center gap-2 mb-2'>
+              <Activity className='h-4 w-4 text-primary' />
+              <span className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Body</span>
+            </div>
+            {bodyScan?.body_fat != null ? (
+              <div className='flex items-baseline gap-1'>
+                <span className='text-2xl font-bold text-foreground'>{bodyScan.body_fat}%</span>
+                <span className='text-xs text-muted-foreground'>fat</span>
+              </div>
+            ) : (
+              <span className='text-sm text-muted-foreground'>No scan yet</span>
+            )}
+            {bodyScan?.body_type && (
+              <Badge
+                className='rounded-full border-0 bg-primary/10 px-2 py-0.5 text-[10px] text-primary mt-2'
+                variant='secondary'
+              >
+                {bodyScan.body_type}
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        <FuelScoreCard
+          todayScore={todayFuelScore}
+          yesterdayScore={yesterdayFuelScore}
+          hasMealsLogged={todayScans.length > 0}
+        />
+      </div>
+
+      {/* Log Meal Button */}
+      <button
+        onClick={() => setShowLogMeal(true)}
+        className='w-full mb-6 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-2xl text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all'
+      >
+        <Plus className='h-5 w-5' />
+        Log a Meal
+      </button>
+
+      {/* Today's Meals */}
+      {todayScans.length > 0 && (
+        <Card className='rounded-2xl border-border/50 mb-6'>
+          <CardContent className='p-0'>
+            <div className='px-4 pt-4 pb-2'>
+              <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Today&apos;s Meals</p>
+            </div>
+            <div className='divide-y divide-border/50'>
+              {todayScans.map((scan) => {
+                const raw = scan.health_score ?? 0
+                const score = normalizeScore(raw)
+                const color = getScoreColor(score)
+                return (
+                  <div
+                    key={scan.id ?? scan.scanned_at}
+                    className='p-4 hover:bg-muted/30 transition-colors'
+                  >
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='flex-1'>
+                        <p className='font-semibold text-sm text-foreground mb-1'>
+                          {scan.food_name || 'Food Scan'}
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Clock className='h-3 w-3 text-muted-foreground' />
+                          <span className='text-xs text-muted-foreground'>
+                            {formatIST(scan.scanned_at, true)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className='text-right'>
+                        <div className='text-sm font-semibold text-foreground mb-1'>
+                          {scan.calories ?? 0} kcal
+                        </div>
+                        <div className='inline-flex items-center gap-1 px-2 py-1 rounded-lg' style={{ background: `${color}15` }}>
+                          <span className='text-xs font-semibold' style={{ color }}>
+                            {Math.round(score)}/10
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className='flex gap-2 mt-2'>
+                      {[
+                        { label: 'P', value: Math.round(scan.protein) },
+                        { label: 'C', value: Math.round(scan.carbs) },
+                        { label: 'F', value: Math.round(scan.fats) },
+                      ].map((macro) => (
+                        <Badge key={macro.label} variant='secondary' className='text-xs'>
+                          {macro.label} {macro.value}g
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {todayScans.length === 0 && (
+        <Card className='rounded-2xl border-border/50 mb-6'>
+          <CardContent className='p-8 text-center'>
+            <Utensils className='h-8 w-8 text-muted-foreground/30 mx-auto mb-3 opacity-30' />
+            <p className='text-sm text-muted-foreground'>No meals scanned today</p>
+            <p className='text-xs text-muted-foreground mt-1'>Start by logging your first meal</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {showPlanner && (
+        <div className="fixed inset-0 z-[10000] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-4">
+          <div className="w-full max-w-lg sm:rounded-2xl rounded-none sm:max-h-[90vh] max-h-screen overflow-y-auto bg-background border border-border">
+            <WorkoutPlannerForm
+              userId={user?.id ?? ''}
+              existingBodyFat={bodyScan?.body_fat_percent}
+              onComplete={() => {
+                setShowPlanner(false)
+                window.location.reload()
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <LogMealDialog
+        open={showLogMeal}
+        onOpenChange={setShowLogMeal}
+        onMealSaved={refetchData}
+      />
+
+      <QrScannerDialog
+        open={showScanner}
+        onOpenChange={setShowScanner}
+        userId={user?.id ?? ''}
+      />
+
+      <AccessRevokedModal open={accessRevoked} />
     </div>
   )
 }
 
-// MacroChip remains the same
+function MacroChip({
+  label,
+  current,
+  goal,
+  icon: Icon,
+  color,
+}: {
+  label: string
+  current: number
+  goal: number
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>
+  color: string
+}) {
+  const percent = goal > 0 ? Math.round((current / goal) * 100) : 0
+
+  return (
+    <Card className='rounded-2xl border-border/50'>
+      <CardContent className='p-3'>
+        <div className='flex items-center justify-between mb-2'>
+          <div style={{ color }} className='opacity-80'>
+            <Icon size={18} strokeWidth={2} />
+          </div>
+          <span className='text-xs font-semibold text-muted-foreground'>{label}</span>
+        </div>
+        <div className='mb-2'>
+          <p className='text-lg font-bold text-foreground'>
+            {current}
+            <span className='text-xs text-muted-foreground ml-0.5'>g</span>
+          </p>
+          <p className='text-xs text-muted-foreground'>of {goal}g</p>
+        </div>
+        <Progress value={Math.min(percent, 100)} className='h-1.5' />
+      </CardContent>
+    </Card>
+  )
+}
