@@ -66,26 +66,7 @@ export function MembershipContent() {
         setLoading(true)
         setError(null)
 
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('phone')
-          .eq('id', user.id)
-          .single()
-
-        if (profileError) throw profileError
-        if (!profile?.phone) {
-          setError('Add your phone number in your profile to see your gym membership.')
-          setLoading(false)
-          return
-        }
-
-        // The link between this profile and a gym_members row is already
-        // established elsewhere (right after profile setup, via the app's
-        // gym-access check) — this just reads that existing link through
-        // linked_profile_id, which is also exactly what RLS scopes access
-        // to. Matching by phone text instead was fragile (a formatting
-        // difference from the owner's entry would silently fail) and,
-        // combined with a null-check bug below, was never actually working.
+        // Fetch membership using the linked_profile_id – this is the primary link
         const { data: memberData, error: memberError } = await supabase
           .from('gym_members')
           .select(`
@@ -108,7 +89,7 @@ export function MembershipContent() {
 
         if (!memberData) {
           setError(
-            "Your phone number hasn't been added to a gym yet. Please contact your gym, or check that the number in your profile matches what they have on file."
+            "Your account isn't linked to any gym yet. Please contact your gym administrator, or ensure your phone number matches the one they have on file."
           )
           setLoading(false)
           return
@@ -116,6 +97,7 @@ export function MembershipContent() {
 
         setMembership(memberData as GymMembership)
 
+        // Fetch attendance
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('gym_attendance')
           .select('attendance_date, scanned_at')
