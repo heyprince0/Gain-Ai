@@ -24,7 +24,7 @@ export default function MemberDetail() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [member, setMember] = useState<GymMember | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', address: '' })
+  const [form, setForm] = useState({ name: '', phone: '', address: '', start_date: '', end_date: '' })
   const [saved, setSaved] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -38,7 +38,13 @@ export default function MemberDetail() {
       .then(({ data }) => {
         if (data) {
           setMember(data as GymMember)
-          setForm({ name: data.name, phone: data.phone, address: data.address })
+          setForm({
+            name: data.name,
+            phone: data.phone,
+            address: data.address,
+            start_date: data.start_date,
+            end_date: data.end_date,
+          })
         }
       })
   }, [id])
@@ -144,6 +150,29 @@ export default function MemberDetail() {
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
             </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label>Start date</Label>
+                <Input
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>End date</Label>
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Editing these dates directly overrides the plan's automatic calculation — use this for
+              manual corrections or custom arrangements.
+            </p>
 
             <p className="text-xs text-muted-foreground">
               If you change the phone number here, the member's app will re-link automatically the next time
