@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, LayoutDashboard, RefreshCw, Settings, LogOut, Menu, X } from 'lucide-react'
+import { Building2, LayoutDashboard, RefreshCw, ShoppingBag, Settings, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 const links = [
   { href: '/gym-owner/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/gym-owner/renewals', label: 'Renewals', icon: RefreshCw },
+  { href: '/gym-owner/shop', label: 'Shop', icon: ShoppingBag },
   { href: '/gym-owner/settings', label: 'Settings', icon: Settings },
 ]
 
