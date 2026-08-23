@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
+import { BottomNavProvider } from "@/contexts/bottom-nav-context"  // <--- new import
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -42,7 +43,9 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <AuthLayout>{children}</AuthLayout>
+            <BottomNavProvider>  {/* <--- wrap AuthLayout */}
+              <AuthLayout>{children}</AuthLayout>
+            </BottomNavProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>
