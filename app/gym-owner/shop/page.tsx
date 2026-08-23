@@ -1,23 +1,14 @@
 'use client'
 
-import { FormEvent, useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Package, ImagePlus, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Plus, Package, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { supabase } from '@/lib/supabase'
@@ -63,27 +54,9 @@ function formatDate(dateStr: string) {
 }
 
 export default function ShopPage() {
-  const [gymId, setGymId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-
-  // Form state
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    discount_type: '' as '' | 'percentage' | 'fixed',
-    discount_value: '',
-    discount_label: '',
-  })
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   async function loadData() {
     try {
@@ -100,7 +73,6 @@ export default function ShopPage() {
         setLoading(false)
         return
       }
-      setGymId(gym.id)
 
       const [{ data: productsData }, { data: ordersData }] = await Promise.all([
         supabase
@@ -128,99 +100,6 @@ export default function ShopPage() {
     void loadData()
   }, [])
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
-  }
-
-  async function addProduct(e: FormEvent) {
-    e.preventDefault()
-    if (!gymId) {
-      setError('Gym not found. Please refresh.')
-      return
-    }
-    const price = Number(form.price)
-    if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
-      setError('Enter a product name and a valid non-negative price.')
-      return
-    }
-
-    // Validate discount
-    let discountType: 'percentage' | 'fixed' | null = null
-    let discountValue: number | null = null
-    if (form.discount_type && form.discount_value) {
-      const val = Number(form.discount_value)
-      if (val > 0) {
-        discountType = form.discount_type as 'percentage' | 'fixed'
-        discountValue = val
-        if (discountType === 'percentage' && val > 100) {
-          setError('Percentage discount cannot exceed 100%.')
-          return
-        }
-      }
-    }
-
-    setBusy(true)
-    setError('')
-
-    let imageUrl: string | null = null
-    try {
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop()
-        const path = `${gymId}/${crypto.randomUUID()}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('gym-products')
-          .upload(path, imageFile, { cacheControl: '3600' })
-        if (uploadError) {
-          setError('Could not upload image. Please try again.')
-          setBusy(false)
-          return
-        }
-        const { data: publicUrlData } = supabase.storage.from('gym-products').getPublicUrl(path)
-        imageUrl = publicUrlData.publicUrl
-      }
-
-      const { error: insertError } = await supabase.from('gym_products').insert({
-        gym_id: gymId,
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        price,
-        image_url: imageUrl,
-        discount_type: discountType,
-        discount_value: discountValue,
-        discount_label: form.discount_label.trim() || null,
-      })
-
-      if (insertError) throw insertError
-
-      // Reset form and close dialog
-      setForm({ name: '', description: '', price: '', discount_type: '', discount_value: '', discount_label: '' })
-      setImageFile(null)
-      setImagePreview(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setError('')
-      setIsAddDialogOpen(false)
-      await loadData()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add product')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function confirmDeleteProduct() {
-    if (!productToDelete) return
-    try {
-      await supabase.from('gym_products').update({ is_active: false }).eq('id', productToDelete.id)
-      setProductToDelete(null)
-      await loadData()
-    } catch (err) {
-      console.error('Error deleting product:', err)
-    }
-  }
-
   async function updateOrderStatus(orderId: string, status: string) {
     try {
       await supabase.from('gym_product_orders').update({ status }).eq('id', orderId)
@@ -230,13 +109,14 @@ export default function ShopPage() {
     }
   }
 
-  function getDiscountedPrice(product: Product) {
-    if (product.discount_type === 'percentage' && product.discount_value) {
-      return product.price * (1 - product.discount_value / 100)
-    } else if (product.discount_type === 'fixed' && product.discount_value) {
-      return Math.max(0, product.price - product.discount_value)
+  async function deleteProduct(productId: string) {
+    if (!confirm('Remove this product from your shop?')) return
+    try {
+      await supabase.from('gym_products').update({ is_active: false }).eq('id', productId)
+      await loadData()
+    } catch (err) {
+      console.error('Error deleting product:', err)
     }
-    return null
   }
 
   if (loading) {
@@ -262,128 +142,12 @@ export default function ShopPage() {
               <h3 className="text-lg font-semibold">Your Products</h3>
               <p className="text-sm text-muted-foreground">Manage items available to your members</p>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 size-4" />
-                  Add Product
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Add New Product</DialogTitle>
-                  <DialogDescription>Fill in the details below to add a new product to your shop.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={addProduct}>
-                  <div className="grid gap-4 py-4">
-                    {/* Image upload */}
-                    <div>
-                      <Label>Product photo (optional)</Label>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-2 flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed bg-muted/30 hover:bg-muted/50"
-                      >
-                        {imagePreview ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
-                            <ImagePlus className="size-5" />
-                            Tap to add a photo
-                          </span>
-                        )}
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Product name</Label>
-                      <Input
-                        required
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Price (₹)</Label>
-                      <Input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.price}
-                        onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Description (optional)</Label>
-                      <Textarea
-                        value={form.description}
-                        onChange={(e) => setForm({ ...form, description: e.target.value })}
-                        rows={3}
-                      />
-                    </div>
-
-                    {/* Discount fields */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Discount type</Label>
-                        <Select
-                          value={form.discount_type}
-                          onValueChange={(val) => setForm({ ...form, discount_type: val as '' | 'percentage' | 'fixed' })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="None" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">None</SelectItem>
-                            <SelectItem value="percentage">Percentage</SelectItem>
-                            <SelectItem value="fixed">Fixed (₹)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Discount value</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="e.g. 20 or 100"
-                          value={form.discount_value}
-                          onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
-                          disabled={!form.discount_type}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Discount label (optional, e.g. "Summer Sale")</Label>
-                      <Input
-                        placeholder="e.g. Summer Sale"
-                        value={form.discount_label}
-                        onChange={(e) => setForm({ ...form, discount_label: e.target.value })}
-                      />
-                    </div>
-
-                    {error && <p className="text-sm text-destructive">{error}</p>}
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={busy}>
-                      {busy ? 'Adding...' : 'Add Product'}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Link href="/gym-owner/shop/add">
+              <Button>
+                <Plus className="mr-2 size-4" />
+                Add Product
+              </Button>
+            </Link>
           </div>
 
           {products.length === 0 ? (
@@ -395,7 +159,12 @@ export default function ShopPage() {
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {products.map((product) => {
-                const discountedPrice = getDiscountedPrice(product)
+                const discountedPrice = product.discount_type && product.discount_value
+                  ? product.discount_type === 'percentage'
+                    ? product.price * (1 - product.discount_value / 100)
+                    : Math.max(0, product.price - product.discount_value)
+                  : null
+
                 return (
                   <Card key={product.id} className="overflow-hidden">
                     <div className="aspect-square relative bg-muted/20">
@@ -439,7 +208,7 @@ export default function ShopPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setProductToDelete(product)}
+                          onClick={() => deleteProduct(product.id)}
                           className="text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="size-4" />
@@ -514,22 +283,6 @@ export default function ShopPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Delete confirmation */}
-      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this product?</AlertDialogTitle>
-            <AlertDialogDescription>
-              "{productToDelete?.name}" will be hidden from your members' shop. Past orders are kept.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProduct}>Remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </GymOwnerShell>
   )
 }
