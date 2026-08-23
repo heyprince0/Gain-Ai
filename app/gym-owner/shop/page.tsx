@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
-import { Plus, Trash2, Package } from 'lucide-react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
+import { Plus, Trash2, Package, ImagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ type Product = {
   name: string
   description: string | null
   price: number
+  image_url: string | null
   is_active: boolean
 }
 
@@ -49,6 +50,9 @@ export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [form, setForm] = useState({ name: '', description: '', price: '' })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
@@ -73,7 +77,7 @@ export default function ShopPage() {
     const [{ data: productsData }, { data: ordersData }] = await Promise.all([
       supabase
         .from('gym_products')
-        .select('id, name, description, price, is_active')
+        .select('id, name, description, price, image_url, is_active')
         .eq('gym_id', gym.id)
         .order('created_at', { ascending: false }),
       supabase
@@ -92,6 +96,13 @@ export default function ShopPage() {
     void load()
   }, [])
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
   async function addProduct(e: FormEvent) {
     e.preventDefault()
     if (!gymId) return
@@ -103,11 +114,31 @@ export default function ShopPage() {
     setBusy(true)
     setError('')
 
+    let imageUrl: string | null = null
+
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop()
+      const path = `${gymId}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('gym-products')
+        .upload(path, imageFile, { cacheControl: '3600' })
+
+      if (uploadError) {
+        setError('Could not upload image. Please try again.')
+        setBusy(false)
+        return
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('gym-products').getPublicUrl(path)
+      imageUrl = publicUrlData.publicUrl
+    }
+
     const { error: insertError } = await supabase.from('gym_products').insert({
       gym_id: gymId,
       name: form.name,
       description: form.description || null,
       price,
+      image_url: imageUrl,
     })
 
     if (insertError) {
@@ -117,6 +148,9 @@ export default function ShopPage() {
     }
 
     setForm({ name: '', description: '', price: '' })
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     await load()
     setBusy(false)
   }
@@ -157,8 +191,16 @@ export default function ShopPage() {
           <CardContent className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               {products.map((p) => (
-                <div className="flex items-center justify-between rounded-xl border p-4" key={p.id}>
-                  <div>
+                <div className="flex items-center gap-3 rounded-xl border p-4" key={p.id}>
+                  <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt={p.name} className="size-full object-cover" />
+                    ) : (
+                      <Package className="size-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-sm text-muted-foreground">₹{p.price}</p>
                     {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
@@ -178,6 +220,31 @@ export default function ShopPage() {
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <form onSubmit={addProduct} className="flex flex-col gap-3 border-t pt-5">
+              <div className="flex flex-col gap-2">
+                <Label>Product photo (optional)</Label>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed bg-muted/30 hover:bg-muted/50"
+                >
+                  {imagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+                      <ImagePlus className="size-5" />
+                      Tap to add a photo
+                    </span>
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
               <div className="flex flex-col gap-2">
                 <Label>Product name</Label>
                 <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
