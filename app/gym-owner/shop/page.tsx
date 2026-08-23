@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Package, ImagePlus } from 'lucide-react'
+import { Plus, Trash2, Package, ImagePlus, Edit, X, Percent, DollarSign, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,11 +12,16 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { supabase } from '@/lib/supabase'
+import { format } from 'date-fns'
 
 type Product = {
   id: string
@@ -25,6 +30,9 @@ type Product = {
   price: number
   image_url: string | null
   is_active: boolean
+  discount_type: 'percentage' | 'fixed' | null
+  discount_value: number | null
+  discount_label: string | null
 }
 
 type Order = {
@@ -37,28 +45,38 @@ type Order = {
 }
 
 const STATUS_OPTIONS = ['pending', 'confirmed', 'delivered', 'cancelled']
-
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'border-transparent bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
-  confirmed: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  delivered: 'border-transparent bg-green-500/15 text-green-600 dark:text-green-400',
-  cancelled: 'border-transparent bg-red-500/15 text-red-600 dark:text-red-400',
+  pending: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30',
+  confirmed: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
+  delivered: 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30',
+  cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
 }
 
 export default function ShopPage() {
   const [gymId, setGymId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
-  const [form, setForm] = useState({ name: '', description: '', price: '' })
+  const [loading, setLoading] = useState(true)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+
+  // Form state
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    discount_type: '' as '' | 'percentage' | 'fixed',
+    discount_value: '',
+    discount_label: '',
+  })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  async function load() {
+  // Load data
+  async function loadData() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) return
 
@@ -77,7 +95,7 @@ export default function ShopPage() {
     const [{ data: productsData }, { data: ordersData }] = await Promise.all([
       supabase
         .from('gym_products')
-        .select('id, name, description, price, image_url, is_active')
+        .select('*')
         .eq('gym_id', gym.id)
         .order('created_at', { ascending: false }),
       supabase
@@ -87,15 +105,16 @@ export default function ShopPage() {
         .order('created_at', { ascending: false }),
     ])
 
-    setProducts((productsData ?? []).filter((p) => p.is_active !== false))
-    setOrders((ordersData as unknown as Order[]) ?? [])
+    setProducts(productsData?.filter(p => p.is_active !== false) ?? [])
+    setOrders(ordersData as unknown as Order[] ?? [])
     setLoading(false)
   }
 
   useEffect(() => {
-    void load()
+    void loadData()
   }, [])
 
+  // File handling
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -103,6 +122,7 @@ export default function ShopPage() {
     setImagePreview(URL.createObjectURL(file))
   }
 
+  // Add product
   async function addProduct(e: FormEvent) {
     e.preventDefault()
     if (!gymId) return
@@ -111,24 +131,38 @@ export default function ShopPage() {
       setError('Enter a product name and a valid non-negative price.')
       return
     }
+
+    // Validate discount
+    let discountType: 'percentage' | 'fixed' | null = null
+    let discountValue: number | null = null
+    if (form.discount_type && form.discount_value) {
+      const val = Number(form.discount_value)
+      if (val > 0) {
+        discountType = form.discount_type as 'percentage' | 'fixed'
+        discountValue = val
+        // Additional validation: percentage should be <= 100
+        if (discountType === 'percentage' && val > 100) {
+          setError('Percentage discount cannot exceed 100%.')
+          return
+        }
+      }
+    }
+
     setBusy(true)
     setError('')
 
     let imageUrl: string | null = null
-
     if (imageFile) {
       const ext = imageFile.name.split('.').pop()
       const path = `${gymId}/${crypto.randomUUID()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('gym-products')
         .upload(path, imageFile, { cacheControl: '3600' })
-
       if (uploadError) {
         setError('Could not upload image. Please try again.')
         setBusy(false)
         return
       }
-
       const { data: publicUrlData } = supabase.storage.from('gym-products').getPublicUrl(path)
       imageUrl = publicUrlData.publicUrl
     }
@@ -139,6 +173,9 @@ export default function ShopPage() {
       description: form.description || null,
       price,
       image_url: imageUrl,
+      discount_type: discountType,
+      discount_value: discountValue,
+      discount_label: form.discount_label || null,
     })
 
     if (insertError) {
@@ -147,24 +184,29 @@ export default function ShopPage() {
       return
     }
 
-    setForm({ name: '', description: '', price: '' })
+    // Reset form and close dialog
+    setForm({ name: '', description: '', price: '', discount_type: '', discount_value: '', discount_label: '' })
     setImageFile(null)
     setImagePreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
-    await load()
+    setError('')
+    setIsAddDialogOpen(false)
+    await loadData()
     setBusy(false)
   }
 
+  // Delete product (soft delete)
   async function confirmDeleteProduct() {
     if (!productToDelete) return
     await supabase.from('gym_products').update({ is_active: false }).eq('id', productToDelete.id)
     setProductToDelete(null)
-    await load()
+    await loadData()
   }
 
+  // Update order status
   async function updateOrderStatus(orderId: string, status: string) {
     await supabase.from('gym_product_orders').update({ status }).eq('id', orderId)
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)))
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status } : o)))
   }
 
   if (loading) {
@@ -175,154 +217,295 @@ export default function ShopPage() {
     )
   }
 
+  // Compute discounted price for display
+  const getDiscountedPrice = (product: Product) => {
+    if (product.discount_type === 'percentage' && product.discount_value) {
+      return product.price * (1 - product.discount_value / 100)
+    } else if (product.discount_type === 'fixed' && product.discount_value) {
+      return Math.max(0, product.price - product.discount_value)
+    }
+    return null
+  }
+
   return (
     <GymOwnerShell title="Shop">
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Products</CardTitle>
-                <CardDescription>Shown only to your connected members in the GainAi app.</CardDescription>
-              </div>
-              <Package className="size-5 text-primary" />
+      <Tabs defaultValue="products" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+        </TabsList>
+
+        {/* Products Tab */}
+        <TabsContent value="products">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Your Products</h3>
+              <p className="text-sm text-muted-foreground">Manage items available to your members</p>
             </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              {products.map((p) => (
-                <div className="flex items-center gap-3 rounded-xl border p-4" key={p.id}>
-                  <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                    {p.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.image_url} alt={p.name} className="size-full object-cover" />
-                    ) : (
-                      <Package className="size-6 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{p.name}</p>
-                    <p className="text-sm text-muted-foreground">₹{p.price}</p>
-                    {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
-                  </div>
-                  <Button size="icon" variant="ghost" onClick={() => setProductToDelete(p)}>
-                    <Trash2 />
-                  </Button>
-                </div>
-              ))}
-              {products.length === 0 && (
-                <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No products yet. Add your first one below.
-                </p>
-              )}
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            <form onSubmit={addProduct} className="flex flex-col gap-3 border-t pt-5">
-              <div className="flex flex-col gap-2">
-                <Label>Product photo (optional)</Label>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed bg-muted/30 hover:bg-muted/50"
-                >
-                  {imagePreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
-                      <ImagePlus className="size-5" />
-                      Tap to add a photo
-                    </span>
-                  )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Product name</Label>
-                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Price (₹)</Label>
-                <Input
-                  required
-                  type="number"
-                  min="0"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Description (optional)</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <Button disabled={busy}>
-                {busy ? 'Adding...' : <><Plus className="mr-2 size-4" />Add product</>}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Orders</CardTitle>
-            <CardDescription>Members who've ordered from your shop.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {orders.length === 0 ? (
-              <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-                No orders yet.
-              </p>
-            ) : (
-              <div className="flex flex-col divide-y">
-                {orders.map((order) => (
-                  <div key={order.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 size-4" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add New Product</DialogTitle>
+                  <DialogDescription>Fill in the details below to add a new product to your shop.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={addProduct}>
+                  <div className="grid gap-4 py-4">
+                    {/* Image upload */}
                     <div>
-                      <p className="font-medium">{order.gym_products?.name ?? 'Product removed'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.gym_members?.name ?? 'Unknown member'} · {order.gym_members?.phone ?? '—'} · Qty {order.quantity}
-                      </p>
+                      <Label>Product photo (optional)</Label>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-2 flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed bg-muted/30 hover:bg-muted/50"
+                      >
+                        {imagePreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+                            <ImagePlus className="size-5" />
+                            Tap to add a photo
+                          </span>
+                        )}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={STATUS_COLORS[order.status] ?? ''}>{order.status}</Badge>
-                      <Select value={order.status} onValueChange={(v) => updateOrderStatus(order.id, v)}>
-                        <SelectTrigger className="h-8 w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map((s) => (
-                            <SelectItem value={s} key={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
+                    <div>
+                      <Label>Product name</Label>
+                      <Input
+                        required
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Price (₹)</Label>
+                      <Input
+                        required
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.price}
+                        onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Description (optional)</Label>
+                      <Textarea
+                        value={form.description}
+                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Discount fields */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Discount type</Label>
+                        <Select
+                          value={form.discount_type}
+                          onValueChange={(val) => setForm({ ...form, discount_type: val as '' | 'percentage' | 'fixed' })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="None" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="percentage">Percentage</SelectItem>
+                            <SelectItem value="fixed">Fixed (₹)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Discount value</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="e.g. 20 or 100"
+                          value={form.discount_value}
+                          onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                          disabled={!form.discount_type}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Discount label (optional, e.g. "Summer Sale")</Label>
+                      <Input
+                        placeholder="e.g. Summer Sale"
+                        value={form.discount_label}
+                        onChange={(e) => setForm({ ...form, discount_label: e.target.value })}
+                      />
+                    </div>
+
+                    {error && <p className="text-sm text-destructive">{error}</p>}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={busy}>
+                      {busy ? 'Adding...' : 'Add Product'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {products.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <Package className="mx-auto size-12 text-muted-foreground/30" />
+              <p className="mt-4 text-sm text-muted-foreground">No products yet.</p>
+              <p className="text-xs text-muted-foreground">Click "Add Product" to start listing items.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((product) => {
+                const discountedPrice = getDiscountedPrice(product)
+                return (
+                  <Card key={product.id} className="overflow-hidden">
+                    <div className="aspect-square relative bg-muted/20">
+                      {product.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={product.image_url} alt={product.name} className="size-full object-cover" />
+                      ) : (
+                        <div className="flex size-full items-center justify-center">
+                          <Package className="size-12 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      {product.discount_type && product.discount_value && (
+                        <Badge className="absolute top-2 right-2 bg-red-500/90 text-white border-0">
+                          {product.discount_type === 'percentage'
+                            ? `${product.discount_value}% OFF`
+                            : `₹${product.discount_value} OFF`}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground">{product.name}</h4>
+                          {product.description && (
+                            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                          )}
+                          <div className="mt-2 flex items-baseline gap-2">
+                            {discountedPrice !== null ? (
+                              <>
+                                <span className="text-lg font-bold text-primary">₹{discountedPrice.toFixed(2)}</span>
+                                <span className="text-sm text-muted-foreground line-through">₹{product.price}</span>
+                              </>
+                            ) : (
+                              <span className="text-lg font-bold">₹{product.price}</span>
+                            )}
+                          </div>
+                          {product.discount_label && (
+                            <p className="mt-1 text-xs text-muted-foreground">{product.discount_label}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setProductToDelete(product)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Orders Tab */}
+        <TabsContent value="orders">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">Member Orders</h3>
+            <p className="text-sm text-muted-foreground">View and update order statuses</p>
+          </div>
+
+          {orders.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <Package className="mx-auto size-12 text-muted-foreground/30" />
+              <p className="mt-4 text-sm text-muted-foreground">No orders yet.</p>
+              <p className="text-xs text-muted-foreground">Orders from members will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {orders.map((order) => (
+                <Card key={order.id}>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{order.gym_products?.name ?? 'Product removed'}</span>
+                          <Badge variant="outline" className={STATUS_COLORS[order.status] || ''}>
+                            {order.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                          <span>
+                            <span className="font-medium text-foreground">{order.gym_members?.name ?? 'Unknown'}</span>
+                          </span>
+                          <span>•</span>
+                          <span>{order.gym_members?.phone ?? '—'}</span>
+                          <span>•</span>
+                          <span>Qty: {order.quantity}</span>
+                          <span>•</span>
+                          <span>
+                            {order.created_at
+                              ? format(new Date(order.created_at), 'dd MMM yyyy, hh:mm a')
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={order.status}
+                          onValueChange={(v) => updateOrderStatus(order.id, v)}
+                        >
+                          <SelectTrigger className="w-36 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_OPTIONS.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Delete confirmation */}
       <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this product?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{productToDelete?.name}" will stop showing in your members' shop. Past orders for it are kept.
+              "{productToDelete?.name}" will be hidden from your members' shop. Past orders are kept.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
