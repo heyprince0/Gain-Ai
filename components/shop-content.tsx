@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShoppingBag, Clock, Package } from 'lucide-react'
+import { ShoppingBag, Clock, Package, Minus, Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
@@ -12,6 +12,7 @@ type Product = {
   name: string
   description: string | null
   price: number
+  image_url: string | null
 }
 
 type MyOrder = {
@@ -35,8 +36,10 @@ export function ShopContent() {
   const [memberId, setMemberId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<MyOrder[]>([])
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [orderingId, setOrderingId] = useState<string | null>(null)
+  const [justOrderedId, setJustOrderedId] = useState<string | null>(null)
 
   async function load() {
     if (!user) {
@@ -68,7 +71,7 @@ export function ShopContent() {
     const [{ data: productsData }, { data: ordersData }] = await Promise.all([
       supabase
         .from('gym_products')
-        .select('id, name, description, price')
+        .select('id, name, description, price, image_url')
         .eq('gym_id', profile.gym_id)
         .eq('is_active', true)
         .order('created_at', { ascending: false }),
@@ -80,6 +83,7 @@ export function ShopContent() {
     ])
 
     setProducts(productsData ?? [])
+    setQuantities(Object.fromEntries((productsData ?? []).map((p) => [p.id, 1])))
     setOrders((ordersData as unknown as MyOrder[]) ?? [])
     setLoading(false)
   }
@@ -87,6 +91,13 @@ export function ShopContent() {
   useEffect(() => {
     void load()
   }, [user])
+
+  function adjustQty(productId: string, delta: number) {
+    setQuantities((prev) => ({
+      ...prev,
+      [productId]: Math.max(1, (prev[productId] ?? 1) + delta),
+    }))
+  }
 
   async function placeOrder(product: Product) {
     if (!user || !gymId) return
@@ -97,10 +108,13 @@ export function ShopContent() {
       product_id: product.id,
       member_id: memberId,
       profile_id: user.id,
-      quantity: 1,
+      quantity: quantities[product.id] ?? 1,
     })
 
     setOrderingId(null)
+    setJustOrderedId(product.id)
+    setTimeout(() => setJustOrderedId(null), 2000)
+    setQuantities((prev) => ({ ...prev, [product.id]: 1 }))
     await load()
   }
 
@@ -144,8 +158,8 @@ export function ShopContent() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl w-full px-4 py-6 pb-24">
-      <div className="mb-8">
+    <div className="mx-auto max-w-3xl w-full px-4 py-6 pb-24">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Gym Shop</h1>
         <p className="text-sm text-muted-foreground mt-1">Products from your gym</p>
       </div>
@@ -158,27 +172,65 @@ export function ShopContent() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {products.map((product) => (
-            <Card key={product.id} className="rounded-2xl border-border/50">
-              <CardContent className="flex items-center justify-between gap-4 p-4">
-                <div>
-                  <p className="font-semibold text-foreground">{product.name}</p>
-                  {product.description && (
-                    <p className="mt-0.5 text-sm text-muted-foreground">{product.description}</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {products.map((product) => {
+            const qty = quantities[product.id] ?? 1
+            const isOrdering = orderingId === product.id
+            const justOrdered = justOrderedId === product.id
+
+            return (
+              <div
+                key={product.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card"
+              >
+                <div className="aspect-square w-full bg-muted">
+                  {product.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={product.image_url} alt={product.name} className="size-full object-cover" />
+                  ) : (
+                    <div className="flex size-full items-center justify-center">
+                      <Package className="size-8 text-muted-foreground" />
+                    </div>
                   )}
-                  <p className="mt-1 text-sm font-medium text-primary">₹{product.price}</p>
                 </div>
-                <button
-                  onClick={() => placeOrder(product)}
-                  disabled={orderingId === product.id}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
-                >
-                  {orderingId === product.id ? 'Ordering...' : 'Order'}
-                </button>
-              </CardContent>
-            </Card>
-          ))}
+
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <div>
+                    <p className="text-sm font-semibold leading-tight text-foreground">{product.name}</p>
+                    <p className="mt-0.5 text-sm font-medium text-primary">₹{product.price}</p>
+                  </div>
+
+                  <div className="mt-auto flex flex-col gap-2">
+                    <div className="flex items-center justify-center gap-3 rounded-lg bg-muted/50 py-1">
+                      <button
+                        onClick={() => adjustQty(product.id, -1)}
+                        className="flex size-6 items-center justify-center rounded-md hover:bg-muted"
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                      <span className="w-4 text-center text-sm font-medium">{qty}</span>
+                      <button
+                        onClick={() => adjustQty(product.id, 1)}
+                        className="flex size-6 items-center justify-center rounded-md hover:bg-muted"
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => placeOrder(product)}
+                      disabled={isOrdering}
+                      className="w-full rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] py-2 text-xs font-semibold text-black disabled:opacity-50"
+                    >
+                      {isOrdering ? 'Ordering...' : justOrdered ? 'Added ✓' : 'Add to Cart'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
