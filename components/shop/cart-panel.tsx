@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'   // <--- add useEffect
 import { Trash2, ShoppingCart, Minus, Plus } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { calculateDiscountedPrice } from './discount-badge'
 import { CartItem } from './types'
 import { EmptyState } from './empty-state'
+import { useBottomNav } from '@/contexts/bottom-nav-context'   // <--- new import
 
 export interface CartPanelProps {
   isOpen: boolean
@@ -27,6 +29,14 @@ export function CartPanel({
   onPlaceOrder,
   isPlacingOrder = false,
 }: CartPanelProps) {
+  const { setShowBottomNav } = useBottomNav()
+
+  // Hide bottom nav when cart is open
+  useEffect(() => {
+    setShowBottomNav(!isOpen)
+    return () => setShowBottomNav(true)  // reset when unmounted
+  }, [isOpen, setShowBottomNav])
+
   const subtotal = items.reduce((sum, item) => {
     const discountedPrice = calculateDiscountedPrice(
       item.product.price,
