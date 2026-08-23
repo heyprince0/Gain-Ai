@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Package, Trash2 } from 'lucide-react'
+import { Plus, Package, Trash2, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { supabase } from '@/lib/supabase'
@@ -57,6 +61,7 @@ export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   async function loadData() {
     try {
@@ -109,10 +114,11 @@ export default function ShopPage() {
     }
   }
 
-  async function deleteProduct(productId: string) {
-    if (!confirm('Remove this product from your shop?')) return
+  async function confirmDeleteProduct() {
+    if (!productToDelete) return
     try {
-      await supabase.from('gym_products').update({ is_active: false }).eq('id', productId)
+      await supabase.from('gym_products').update({ is_active: false }).eq('id', productToDelete.id)
+      setProductToDelete(null)
       await loadData()
     } catch (err) {
       console.error('Error deleting product:', err)
@@ -205,14 +211,21 @@ export default function ShopPage() {
                             <p className="mt-1 text-xs text-muted-foreground">{product.discount_label}</p>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteProduct(product.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Link href={`/gym-owner/shop/edit/${product.id}`}>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <Edit className="size-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setProductToDelete(product)}
+                            className="text-muted-foreground hover:text-destructive size-8"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -283,6 +296,22 @@ export default function ShopPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{productToDelete?.name}" will be hidden from your members' shop. Past orders are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProduct}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </GymOwnerShell>
   )
 }
