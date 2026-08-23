@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Package, ImagePlus, Edit, X, Percent, DollarSign, Tag } from 'lucide-react'
+import { Plus, Trash2, Package, ImagePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { supabase } from '@/lib/supabase'
-import { format } from 'date-fns'
 
 type Product = {
   id: string
@@ -52,6 +51,17 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
 }
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function ShopPage() {
   const [gymId, setGymId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -75,46 +85,49 @@ export default function ShopPage() {
   const [error, setError] = useState('')
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
-  // Load data
   async function loadData() {
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) return
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      if (!userData.user) return
 
-    const { data: gym } = await supabase
-      .from('gyms')
-      .select('id')
-      .eq('owner_id', userData.user.id)
-      .maybeSingle()
+      const { data: gym } = await supabase
+        .from('gyms')
+        .select('id')
+        .eq('owner_id', userData.user.id)
+        .maybeSingle()
 
-    if (!gym) {
+      if (!gym) {
+        setLoading(false)
+        return
+      }
+      setGymId(gym.id)
+
+      const [{ data: productsData }, { data: ordersData }] = await Promise.all([
+        supabase
+          .from('gym_products')
+          .select('*')
+          .eq('gym_id', gym.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('gym_product_orders')
+          .select('id, quantity, status, created_at, gym_products(name, price), gym_members(name, phone)')
+          .eq('gym_id', gym.id)
+          .order('created_at', { ascending: false }),
+      ])
+
+      setProducts(productsData?.filter(p => p.is_active !== false) ?? [])
+      setOrders((ordersData as unknown as Order[]) ?? [])
+    } catch (err) {
+      console.error('Error loading data:', err)
+    } finally {
       setLoading(false)
-      return
     }
-    setGymId(gym.id)
-
-    const [{ data: productsData }, { data: ordersData }] = await Promise.all([
-      supabase
-        .from('gym_products')
-        .select('*')
-        .eq('gym_id', gym.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('gym_product_orders')
-        .select('id, quantity, status, created_at, gym_products(name, price), gym_members(name, phone)')
-        .eq('gym_id', gym.id)
-        .order('created_at', { ascending: false }),
-    ])
-
-    setProducts(productsData?.filter(p => p.is_active !== false) ?? [])
-    setOrders(ordersData as unknown as Order[] ?? [])
-    setLoading(false)
   }
 
   useEffect(() => {
     void loadData()
   }, [])
 
-  // File handling
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -122,10 +135,12 @@ export default function ShopPage() {
     setImagePreview(URL.createObjectURL(file))
   }
 
-  // Add product
   async function addProduct(e: FormEvent) {
     e.preventDefault()
-    if (!gymId) return
+    if (!gymId) {
+      setError('Gym not found. Please refresh.')
+      return
+    }
     const price = Number(form.price)
     if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
       setError('Enter a product name and a valid non-negative price.')
@@ -140,7 +155,6 @@ export default function ShopPage() {
       if (val > 0) {
         discountType = form.discount_type as 'percentage' | 'fixed'
         discountValue = val
-        // Additional validation: percentage should be <= 100
         if (discountType === 'percentage' && val > 100) {
           setError('Percentage discount cannot exceed 100%.')
           return
@@ -152,61 +166,77 @@ export default function ShopPage() {
     setError('')
 
     let imageUrl: string | null = null
-    if (imageFile) {
-      const ext = imageFile.name.split('.').pop()
-      const path = `${gymId}/${crypto.randomUUID()}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('gym-products')
-        .upload(path, imageFile, { cacheControl: '3600' })
-      if (uploadError) {
-        setError('Could not upload image. Please try again.')
-        setBusy(false)
-        return
+    try {
+      if (imageFile) {
+        const ext = imageFile.name.split('.').pop()
+        const path = `${gymId}/${crypto.randomUUID()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('gym-products')
+          .upload(path, imageFile, { cacheControl: '3600' })
+        if (uploadError) {
+          setError('Could not upload image. Please try again.')
+          setBusy(false)
+          return
+        }
+        const { data: publicUrlData } = supabase.storage.from('gym-products').getPublicUrl(path)
+        imageUrl = publicUrlData.publicUrl
       }
-      const { data: publicUrlData } = supabase.storage.from('gym-products').getPublicUrl(path)
-      imageUrl = publicUrlData.publicUrl
-    }
 
-    const { error: insertError } = await supabase.from('gym_products').insert({
-      gym_id: gymId,
-      name: form.name,
-      description: form.description || null,
-      price,
-      image_url: imageUrl,
-      discount_type: discountType,
-      discount_value: discountValue,
-      discount_label: form.discount_label || null,
-    })
+      const { error: insertError } = await supabase.from('gym_products').insert({
+        gym_id: gymId,
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        price,
+        image_url: imageUrl,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_label: form.discount_label.trim() || null,
+      })
 
-    if (insertError) {
-      setError(insertError.message)
+      if (insertError) throw insertError
+
+      // Reset form and close dialog
+      setForm({ name: '', description: '', price: '', discount_type: '', discount_value: '', discount_label: '' })
+      setImageFile(null)
+      setImagePreview(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      setError('')
+      setIsAddDialogOpen(false)
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add product')
+    } finally {
       setBusy(false)
-      return
     }
-
-    // Reset form and close dialog
-    setForm({ name: '', description: '', price: '', discount_type: '', discount_value: '', discount_label: '' })
-    setImageFile(null)
-    setImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    setError('')
-    setIsAddDialogOpen(false)
-    await loadData()
-    setBusy(false)
   }
 
-  // Delete product (soft delete)
   async function confirmDeleteProduct() {
     if (!productToDelete) return
-    await supabase.from('gym_products').update({ is_active: false }).eq('id', productToDelete.id)
-    setProductToDelete(null)
-    await loadData()
+    try {
+      await supabase.from('gym_products').update({ is_active: false }).eq('id', productToDelete.id)
+      setProductToDelete(null)
+      await loadData()
+    } catch (err) {
+      console.error('Error deleting product:', err)
+    }
   }
 
-  // Update order status
   async function updateOrderStatus(orderId: string, status: string) {
-    await supabase.from('gym_product_orders').update({ status }).eq('id', orderId)
-    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status } : o)))
+    try {
+      await supabase.from('gym_product_orders').update({ status }).eq('id', orderId)
+      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status } : o)))
+    } catch (err) {
+      console.error('Error updating order status:', err)
+    }
+  }
+
+  function getDiscountedPrice(product: Product) {
+    if (product.discount_type === 'percentage' && product.discount_value) {
+      return product.price * (1 - product.discount_value / 100)
+    } else if (product.discount_type === 'fixed' && product.discount_value) {
+      return Math.max(0, product.price - product.discount_value)
+    }
+    return null
   }
 
   if (loading) {
@@ -215,16 +245,6 @@ export default function ShopPage() {
         <p className="text-sm text-muted-foreground">Loading shop...</p>
       </GymOwnerShell>
     )
-  }
-
-  // Compute discounted price for display
-  const getDiscountedPrice = (product: Product) => {
-    if (product.discount_type === 'percentage' && product.discount_value) {
-      return product.price * (1 - product.discount_value / 100)
-    } else if (product.discount_type === 'fixed' && product.discount_value) {
-      return Math.max(0, product.price - product.discount_value)
-    }
-    return null
   }
 
   return (
@@ -468,11 +488,7 @@ export default function ShopPage() {
                           <span>•</span>
                           <span>Qty: {order.quantity}</span>
                           <span>•</span>
-                          <span>
-                            {order.created_at
-                              ? format(new Date(order.created_at), 'dd MMM yyyy, hh:mm a')
-                              : '—'}
-                          </span>
+                          <span>{formatDate(order.created_at)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
