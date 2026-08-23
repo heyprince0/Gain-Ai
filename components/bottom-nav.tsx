@@ -2,10 +2,13 @@
 import { LayoutDashboard, TrendingUp, ScanLine, Activity, User, CreditCard, ShoppingBag } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useBottomNav } from '@/contexts/bottom-nav-context'   // <--- new import
 
 export function BottomNav() {
   const router = useRouter()
   const pathname = usePathname()
+  const { showBottomNav } = useBottomNav()  // <--- get state
+
   const isActive = (path: string) => pathname === path
 
   const [isDark, setIsDark] = useState(false)
@@ -30,6 +33,9 @@ export function BottomNav() {
 
   const leftItems = navItems.slice(0, 3)
   const rightItems = navItems.slice(3)
+
+  // 👇 Hide the nav when cart is open
+  if (!showBottomNav) return null
 
   return (
     <div
