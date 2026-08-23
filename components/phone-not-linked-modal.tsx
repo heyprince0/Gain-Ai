@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
 
 interface PhoneNotLinkedModalProps {
   open: boolean
@@ -16,9 +15,9 @@ interface PhoneNotLinkedModalProps {
 }
 
 export function PhoneNotLinkedModal({ open, onOpenChange }: PhoneNotLinkedModalProps) {
-  const handleOk = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/'
+  const handleOk = () => {
+    // Just close the modal – user stays on the profile setup page
+    onOpenChange(false)
   }
 
   return (
