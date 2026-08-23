@@ -43,7 +43,6 @@ export default function AddProductPage() {
     setError('')
 
     try {
-      // Get the gym
       const { data: userData } = await supabase.auth.getUser()
       if (!userData.user) throw new Error('Not authenticated')
 
@@ -55,7 +54,6 @@ export default function AddProductPage() {
 
       if (!gym) throw new Error('Gym not found')
 
-      // Validate inputs
       const price = Number(form.price)
       if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
         throw new Error('Enter a valid product name and price.')
@@ -74,7 +72,7 @@ export default function AddProductPage() {
         }
       }
 
-      // Upload image if present
+      // Upload image
       let imageUrl: string | null = null
       if (imageFile) {
         const ext = imageFile.name.split('.').pop()
@@ -87,7 +85,6 @@ export default function AddProductPage() {
         imageUrl = publicUrlData.publicUrl
       }
 
-      // Insert product
       const { error: insertError } = await supabase.from('gym_products').insert({
         gym_id: gym.id,
         name: form.name.trim(),
@@ -101,7 +98,6 @@ export default function AddProductPage() {
 
       if (insertError) throw insertError
 
-      // Success → go back to shop
       router.push('/gym-owner/shop')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add product')
@@ -129,7 +125,6 @@ export default function AddProductPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Image upload */}
               <div>
                 <Label>Product photo (optional)</Label>
                 <button
@@ -190,14 +185,19 @@ export default function AddProductPage() {
                 <div>
                   <Label>Discount type</Label>
                   <Select
-                    value={form.discount_type}
-                    onValueChange={(val) => setForm({ ...form, discount_type: val as '' | 'percentage' | 'fixed' })}
+                    value={form.discount_type || 'none'}
+                    onValueChange={(val) => {
+                      setForm({
+                        ...form,
+                        discount_type: val === 'none' ? '' : val as '' | 'percentage' | 'fixed',
+                      })
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="percentage">Percentage</SelectItem>
                       <SelectItem value="fixed">Fixed (₹)</SelectItem>
                     </SelectContent>
