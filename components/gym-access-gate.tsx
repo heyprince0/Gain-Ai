@@ -28,8 +28,6 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
       let blocked = false
 
       if (profileRow?.gym_id) {
-        // Already linked to a gym — re-check access on every load, since
-        // an owner may have turned access off after the initial link.
         const { data } = await supabase
           .from('gym_members')
           .select('app_access')
@@ -40,10 +38,6 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
         if (cancelled) return
         if (data && !data.app_access) blocked = true
       } else if (profileRow?.phone) {
-        // Not linked yet — check this phone number against every gym's
-        // member list, not just one scoped to a QR they may or may not
-        // have scanned. A gym owner may have added this number before the
-        // member ever signed up. No match anywhere → completely unaffected.
         const { data } = await supabase.rpc('match_and_link_member_by_phone', {
           p_phone: profileRow.phone,
         })
