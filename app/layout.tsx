@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
+import { BottomNavProvider } from "@/contexts/bottom-nav-context"   // 👈 added
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -19,10 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: "/logo.png",
     },
-    // Gym-specific manifest when a pending install belongs to a gym —
-    // this is what makes the installed icon/name show the gym's own
-    // branding instead of plain GainAi. Falls back to the default
-    // manifest for everyone else, unchanged.
     manifest: gymId ? `/api/manifest/${gymId}` : "/manifest.json",
   }
 }
@@ -52,7 +49,10 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <AuthLayout>{children}</AuthLayout>
+            {/* 👇 BottomNavProvider now wraps the whole app */}
+            <BottomNavProvider>
+              <AuthLayout>{children}</AuthLayout>
+            </BottomNavProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>
