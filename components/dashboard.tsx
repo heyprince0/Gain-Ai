@@ -126,7 +126,10 @@ export function Dashboard() {
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [installable, setInstallable] = useState(false)
+
+  // Install state
+  const [showInstallButton, setShowInstallButton] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
 
   const displayName =
     profile?.name ||
@@ -135,34 +138,66 @@ export function Dashboard() {
     user?.email?.split('@')[0] ||
     'User'
 
-  // Check if PWA is installable
+  // PWA install detection
   useEffect(() => {
-    const checkInstall = async () => {
-      if (isStandaloneDisplay()) {
-        setInstallable(false)
-        return
-      }
-      const prompt = getDeferredInstallPrompt()
-      setInstallable(!!prompt)
-    }
-
-    checkInstall()
-
-    const handler = () => {
-      const prompt = getDeferredInstallPrompt()
-      setInstallable(!!prompt)
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+      setShowInstallButton(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
 
-    const installedHandler = () => setInstallable(false)
+    const installedHandler = () => {
+      setShowInstallButton(false)
+    }
     window.addEventListener('appinstalled', installedHandler)
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
-      window.removeEventListener('appinstalled', installedHandler)
+    if (isStandaloneDisplay()) {
+      setShowInstallButton(false)
+    } else {
+      setShowInstallButton(true)
+      const timer = setTimeout(() => {
+        const prompt = getDeferredInstallPrompt()
+        if (prompt) {
+          setInstallPrompt(prompt)
+          setShowInstallButton(true)
+        }
+      }, 2000)
+      return () => {
+        clearTimeout(timer)
+        window.removeEventListener('beforeinstallprompt', handler)
+        window.removeEventListener('appinstalled', installedHandler)
+      }
     }
   }, [])
 
+  // Also check via canInstallPwa
+  useEffect(() => {
+    const check = async () => {
+      if (!isStandaloneDisplay()) {
+        const prompt = await canInstallPwa()
+        if (prompt) {
+          setInstallPrompt(prompt)
+          setShowInstallButton(true)
+        }
+      }
+    }
+    check()
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      await installPrompt.prompt()
+      const { outcome } = await installPrompt.userChoice
+      if (outcome === 'accepted') {
+        setShowInstallButton(false)
+      }
+    } else {
+      alert('Please use your browser\'s "Add to Home Screen" feature to install the app.')
+    }
+  }
+
+  // Refetch data helper
   const refetchData = async () => {
     if (!user) return
 
@@ -530,16 +565,10 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Install button (only if installable) */}
-          {installable && (
+          {/* Install button – shown to everyone not in standalone mode */}
+          {showInstallButton && (
             <button
-              onClick={async () => {
-                const prompt = getDeferredInstallPrompt()
-                if (!prompt) return
-                await prompt.prompt()
-                const { outcome } = await prompt.userChoice
-                if (outcome === 'accepted') setInstallable(false)
-              }}
+              onClick={handleInstallClick}
               aria-label="Install GainAi app"
               className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10"
             >
