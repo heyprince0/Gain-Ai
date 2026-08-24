@@ -1,4 +1,4 @@
-'use client'
+use client'
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -11,74 +11,45 @@ type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [state, setState] = useState<GateState>('checking')
-  const [gymBranding, setGymBranding] = useState<{ name: string; logo: string | null } | null>(null)
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
 
     async function run() {
-      console.log('[GymAccessGate] Starting checks...')
-
-      // 1. Fetch full profile
-      const { data: profileRow, error: profileError } = await supabase
+      const { data: profileRow } = await supabase
         .from('profiles')
-        .select('gym_id, phone, name, age, weight, height, goal')
+        .select('gym_id, phone')
         .eq('id', user.id)
         .maybeSingle()
 
       if (cancelled) return
-      if (profileError) {
-        console.error('Profile fetch error:', profileError)
-        setState('ready')
-        return
-      }
 
-      // Check profile completeness
-      const isProfileComplete = profileRow &&
-        profileRow.name &&
-        profileRow.phone &&
-        profileRow.age &&
-        profileRow.weight &&
-        profileRow.height &&
-        profileRow.goal
-
-      console.log('[GymAccessGate] Profile complete?', isProfileComplete, profileRow)
-
-      if (!isProfileComplete) {
-        console.log('[GymAccessGate] Profile not complete – skipping install prompt')
-        setState('ready')
-        return
-      }
-
-      // 2. Gym access / linking
       let blocked = false
-      let gymId = profileRow.gym_id
 
-      if (gymId) {
+      if (profileRow?.gym_id) {
+        // Already linked to a gym — re-check access on every load, since
+        // an owner may have turned access off after the initial link.
         const { data } = await supabase
           .from('gym_members')
           .select('app_access')
           .eq('linked_profile_id', user.id)
-          .eq('gym_id', gymId)
+          .eq('gym_id', profileRow.gym_id)
           .is('deleted_at', null)
           .maybeSingle()
         if (cancelled) return
         if (data && !data.app_access) blocked = true
-      } else if (profileRow.phone) {
+      } else if (profileRow?.phone) {
+        // Not linked yet — check this phone number against every gym's
+        // member list, not just one scoped to a QR they may or may not
+        // have scanned. A gym owner may have added this number before the
+        // member ever signed up. No match anywhere → completely unaffected.
         const { data } = await supabase.rpc('match_and_link_member_by_phone', {
           p_phone: profileRow.phone,
         })
         const member = Array.isArray(data) ? data[0] : data
         if (cancelled) return
         if (member && !member.app_access && !member.linked_to_other) blocked = true
-        if (member && member.gym_id) {
-          gymId = member.gym_id
-          await supabase
-            .from('profiles')
-            .update({ gym_id: member.gym_id })
-            .eq('id', user.id)
-        }
       }
 
       if (blocked) {
@@ -86,36 +57,14 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // 3. Fetch gym branding
-      if (gymId) {
-        const { data: gymData } = await supabase
-          .from('gyms')
-          .select('name, logo_url')
-          .eq('id', gymId)
-          .maybeSingle()
-        if (gymData) {
-          setGymBranding({ name: gymData.name, logo: gymData.logo_url })
-        }
-      }
-
-      // 4. PWA installability
       if (isStandaloneDisplay()) {
-        console.log('[GymAccessGate] Already in standalone mode – ready')
         setState('ready')
         return
       }
 
       const installable = await canInstallPwa()
-      console.log('[GymAccessGate] PWA installable?', installable)
       if (cancelled) return
-
-      if (installable && isProfileComplete) {
-        console.log('[GymAccessGate] Showing install prompt')
-        setState('show-install')
-      } else {
-        console.log('[GymAccessGate] Not showing install prompt (installable=' + installable + ', profileComplete=' + isProfileComplete + ')')
-        setState('ready')
-      }
+      setState(installable ? 'show-install' : 'ready')
     }
 
     void run()
@@ -146,13 +95,7 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
   }
 
   if (state === 'show-install') {
-    return (
-      <PwaInstallPrompt
-        onInstalled={() => setState('ready')}
-        gymName={gymBranding?.name || 'GainAi'}
-        gymLogo={gymBranding?.logo || null}
-      />
-    )
+    return <PwaInstallPrompt onInstalled={() => setState('ready')} />
   }
 
   return <>{children}</>
