@@ -10,7 +10,12 @@ export default function InstallPage() {
 
   useEffect(() => {
     if (gymId) {
+      // localStorage is read by the client-side linking/access-check logic.
       localStorage.setItem('gainai_pending_gym_id', gymId)
+      // The cookie is what lets the server render gym-branded metadata
+      // (the dynamic manifest, page title) before any of that JS runs —
+      // localStorage alone isn't visible during server rendering.
+      document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; max-age=${60 * 60 * 24 * 7}`
     }
     // Straight to the sign-in screen — /dashboard is a protected route, so an
     // unauthenticated visitor lands directly on AuthScreen with no detour.
