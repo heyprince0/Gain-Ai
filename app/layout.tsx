@@ -1,21 +1,29 @@
 import type { Metadata, Viewport } from "next"
+import { cookies } from "next/headers"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
-import { BottomNavProvider } from "@/contexts/bottom-nav-context"  // <--- new import
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
-export const metadata: Metadata = {
-  title: "GainAi - AI-Powered Nutrition & Body Analysis",
-  description:
-    "Your premium AI fitness tool. Scan food for macros, analyze body composition, and get personalized coaching from your AI fitness assistant.",
-  icons: {
-    icon: "/logo.png",
-  },
-  manifest: "/manifest.json",
+export async function generateMetadata(): Promise<Metadata> {
+  const gymId = cookies().get("gainai_pending_gym_id")?.value
+
+  return {
+    title: "GainAi - AI-Powered Nutrition & Body Analysis",
+    description:
+      "Your premium AI fitness tool. Scan food for macros, analyze body composition, and get personalized coaching from your AI fitness assistant.",
+    icons: {
+      icon: "/logo.png",
+    },
+    // Gym-specific manifest when a pending install belongs to a gym —
+    // this is what makes the installed icon/name show the gym's own
+    // branding instead of plain GainAi. Falls back to the default
+    // manifest for everyone else, unchanged.
+    manifest: gymId ? `/api/manifest/${gymId}` : "/manifest.json",
+  }
 }
 
 export const viewport: Viewport = {
@@ -43,9 +51,7 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <BottomNavProvider>  {/* <--- wrap AuthLayout */}
-              <AuthLayout>{children}</AuthLayout>
-            </BottomNavProvider>
+            <AuthLayout>{children}</AuthLayout>
           </ThemeProvider>
         </AuthProvider>
       </body>
