@@ -15,6 +15,7 @@ import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
 import { QrScannerDialog } from '@/components/qr-scanner-dialog'
+import { useGymBranding } from '@/lib/use-gym-branding'
 import { AccessRevokedModal } from '@/components/access-revoked-modal'
 
 interface Profile {
@@ -34,7 +35,6 @@ interface Profile {
   tdee?: number
   created_at: string
   gym_id?: string | null
-  phone?: string
 }
 
 interface FoodScan {
@@ -69,6 +69,11 @@ interface DailyLog {
 }
 
 const formatIST = (dateString: string, timeOnly = false) => {
+  // Supabase's `scanned_at` column is `timestamp` (no timezone). It was inserted
+  // as a UTC instant, but Postgres strips the offset when storing it, so it comes
+  // back as a naive string like "2026-08-02T10:30:00" with no "Z"/offset. The
+  // browser then parses that as *local* time instead of UTC, throwing the
+  // displayed time off by your UTC offset. Re-tag it as UTC before converting.
   const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString)
   const date = new Date(hasTimezone ? dateString : `${dateString}Z`)
   if (timeOnly) {
@@ -104,6 +109,7 @@ export function Dashboard() {
   const [showLogMeal, setShowLogMeal] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [accessRevoked, setAccessRevoked] = useState(false)
+  const branding = useGymBranding(profile?.gym_id)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -206,7 +212,10 @@ export function Dashboard() {
     return Math.round(s)
   }
 
-  // Check app_access periodically – this is the only access check we keep
+  // While a member is actively using the dashboard, keep checking whether
+  // their gym has turned off their access — not just on page load. Polls
+  // periodically and also re-checks the moment they come back to the tab,
+  // so a revoked member doesn't keep working undetected for long.
   useEffect(() => {
     if (!user || !profile?.gym_id) return
 
@@ -247,7 +256,7 @@ export function Dashboard() {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id, phone')
+          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
           .eq('id', user.id)
           .single()
 
@@ -319,6 +328,9 @@ export function Dashboard() {
         if (foodError) console.error('Food scans error:', foodError)
         if (foodData) setFoodScans(foodData)
 
+        // food_scans only ever holds the last ~24h (older rows get archived +
+        // deleted hourly) — streak/weekly history now lives in this small
+        // permanent table instead.
         const { data: dailyLogData, error: dailyLogError } = await supabase
           .from('daily_nutrition_log')
           .select('log_date, scan_count, total_calories, total_protein, total_carbs, total_fats')
@@ -408,6 +420,7 @@ export function Dashboard() {
     .map((n: string) => n[0])
     .join('') || ''
 
+  // FIXED: streak calculation using UTC-based day stepping
   const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
     const todayKey = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -416,12 +429,17 @@ export function Dashboard() {
       day: '2-digit',
     }).format(new Date())
 
+    // Days with a scan, from the permanent log
     const days = new Set(logs.filter((l) => l.scan_count > 0).map((l) => l.log_date))
+    // Today's log row may not exist yet (it only gets archived after 24h) —
+    // use the live todayScans check instead for today specifically.
     if (hasScannedToday) days.add(todayKey)
 
     if (days.size === 0) return 0
 
+    // Start cursor at today's IST midnight (UTC timestamp)
     let cursor = new Date(`${todayKey}T00:00:00+05:30`)
+    // If today is not scanned, start checking from yesterday
     if (!days.has(todayKey)) {
       cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
@@ -438,6 +456,7 @@ export function Dashboard() {
       const key = formatter.format(cursor)
       if (!days.has(key)) break
       streak += 1
+      // Move back exactly 24 hours in UTC (no local timezone interference)
       cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
     return streak
@@ -451,11 +470,21 @@ export function Dashboard() {
       {/* Header */}
       <div className='mb-8 flex items-start justify-between gap-3'>
         <div>
-          <h1 className='text-3xl font-bold tracking-tight text-foreground'>
-            Welcome, {displayName}
-          </h1>
+          <div className="flex items-center gap-2">
+            {branding?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={branding.logo_url}
+                alt={branding.gym_name}
+                className="size-8 rounded-lg object-cover"
+              />
+            )}
+            <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+              Welcome, {displayName}
+            </h1>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {"Today's fitness overview"}
+            {branding?.gym_name ? `${branding.gym_name} · Today's fitness overview` : "Today's fitness overview"}
           </p>
         </div>
         <button
@@ -483,13 +512,13 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Today's Workout Card */}
+      {/* Today's Workout Card - First */}
       <TodayWorkoutCard
         userId={user?.id ?? ''}
         onCreatePlan={() => setShowPlanner(true)}
       />
 
-      {/* Calorie Arc Card */}
+      {/* Main Arc Calorie Gauge Card */}
       <Card className='rounded-2xl border-border/50 mb-6 bg-gradient-to-br from-card to-card/80'>
         <CardContent className='p-8'>
           <div className='flex flex-col items-center'>
@@ -497,7 +526,9 @@ export function Dashboard() {
               Calorie Summary
             </p>
             
+            {/* Arc Gauge SVG */}
             <svg viewBox='0 0 200 120' className='w-full max-w-sm mb-6' style={{ height: 'auto' }}>
+              {/* Background arc */}
               <path
                 d='M 20 100 A 80 80 0 0 1 180 100'
                 stroke='currentColor'
@@ -506,6 +537,8 @@ export function Dashboard() {
                 className='text-muted/20'
                 strokeLinecap='round'
               />
+              
+              {/* Progress arc */}
               <path
                 d='M 20 100 A 80 80 0 0 1 180 100'
                 stroke='#00ff88'
@@ -531,7 +564,7 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Macro Chips */}
+      {/* Macro Chips - Grid */}
       <div className='grid grid-cols-3 gap-3 mb-6'>
         <MacroChip 
           label='Protein' 
@@ -556,7 +589,7 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Body Stats & Fuel Score */}
+      {/* Body Stats and Fuel Score Row */}
       <div className='grid grid-cols-2 gap-3 mb-6'>
         <Card className='rounded-2xl border-border/50'>
           <CardContent className='p-4'>
@@ -590,7 +623,7 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Log Meal Button */}
+      {/* Action Button */}
       <button
         onClick={() => setShowLogMeal(true)}
         className='w-full mb-6 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-2xl text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all'
@@ -599,7 +632,7 @@ export function Dashboard() {
         Log a Meal
       </button>
 
-      {/* Today's Meals */}
+      {/* Today's Meals List */}
       {todayScans.length > 0 && (
         <Card className='rounded-2xl border-border/50 mb-6'>
           <CardContent className='p-0'>
