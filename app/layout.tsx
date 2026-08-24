@@ -9,7 +9,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export async function generateMetadata(): Promise<Metadata> {
-  const gymId = cookies().get("gainai_pending_gym_id")?.value
+  const cookieStore = await cookies()
+  const gymId = cookieStore.get("gainai_pending_gym_id")?.value
 
   return {
     title: "GainAi - AI-Powered Nutrition & Body Analysis",
