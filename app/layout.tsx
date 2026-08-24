@@ -4,15 +4,17 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
-import { BottomNavProvider } from "@/contexts/bottom-nav-context"   // 👈 added
+import { BottomNavProvider } from "@/contexts/bottom-nav-context"
 import "./globals.css"
+
+// 👇 This line runs the module's side effects BEFORE any component mounts
+import "@/lib/pwa-install"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
   const gymId = cookieStore.get("gainai_pending_gym_id")?.value
-
   return {
     title: "GainAi - AI-Powered Nutrition & Body Analysis",
     description:
@@ -49,7 +51,6 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            {/* 👇 BottomNavProvider now wraps the whole app */}
             <BottomNavProvider>
               <AuthLayout>{children}</AuthLayout>
             </BottomNavProvider>
