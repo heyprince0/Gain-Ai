@@ -69,11 +69,6 @@ interface DailyLog {
 }
 
 const formatIST = (dateString: string, timeOnly = false) => {
-  // Supabase's `scanned_at` column is `timestamp` (no timezone). It was inserted
-  // as a UTC instant, but Postgres strips the offset when storing it, so it comes
-  // back as a naive string like "2026-08-02T10:30:00" with no "Z"/offset. The
-  // browser then parses that as *local* time instead of UTC, throwing the
-  // displayed time off by your UTC offset. Re-tag it as UTC before converting.
   const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString)
   const date = new Date(hasTimezone ? dateString : `${dateString}Z`)
   if (timeOnly) {
@@ -212,10 +207,6 @@ export function Dashboard() {
     return Math.round(s)
   }
 
-  // While a member is actively using the dashboard, keep checking whether
-  // their gym has turned off their access — not just on page load. Polls
-  // periodically and also re-checks the moment they come back to the tab,
-  // so a revoked member doesn't keep working undetected for long.
   useEffect(() => {
     if (!user || !profile?.gym_id) return
 
@@ -254,11 +245,12 @@ export function Dashboard() {
       if (!user) return
 
       try {
+        // ✅ FIX: use maybeSingle() instead of single() to avoid 406 error
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Profile error:', profileError)
@@ -328,9 +320,6 @@ export function Dashboard() {
         if (foodError) console.error('Food scans error:', foodError)
         if (foodData) setFoodScans(foodData)
 
-        // food_scans only ever holds the last ~24h (older rows get archived +
-        // deleted hourly) — streak/weekly history now lives in this small
-        // permanent table instead.
         const { data: dailyLogData, error: dailyLogError } = await supabase
           .from('daily_nutrition_log')
           .select('log_date, scan_count, total_calories, total_protein, total_carbs, total_fats')
@@ -400,7 +389,18 @@ export function Dashboard() {
     )
   }
 
-  if (!profile) return null
+  if (!profile) {
+    // ✅ Show a message to complete profile instead of crashing
+    return (
+      <div className='flex min-h-screen items-center justify-center'>
+        <div className='text-center'>
+          <h2 className='text-xl font-semibold text-foreground mb-2'>Complete your profile</h2>
+          <p className='text-muted-foreground'>Please set up your profile to start tracking your fitness journey.</p>
+          {/* You can add a "Go to Profile" button here if you have a profile page */}
+        </div>
+      </div>
+    )
+  }
 
   const calPercent = profile.calorie_goal
     ? Math.round((todayStats.calories / profile.calorie_goal) * 100)
@@ -420,7 +420,6 @@ export function Dashboard() {
     .map((n: string) => n[0])
     .join('') || ''
 
-  // FIXED: streak calculation using UTC-based day stepping
   const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
     const todayKey = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -429,17 +428,12 @@ export function Dashboard() {
       day: '2-digit',
     }).format(new Date())
 
-    // Days with a scan, from the permanent log
     const days = new Set(logs.filter((l) => l.scan_count > 0).map((l) => l.log_date))
-    // Today's log row may not exist yet (it only gets archived after 24h) —
-    // use the live todayScans check instead for today specifically.
     if (hasScannedToday) days.add(todayKey)
 
     if (days.size === 0) return 0
 
-    // Start cursor at today's IST midnight (UTC timestamp)
     let cursor = new Date(`${todayKey}T00:00:00+05:30`)
-    // If today is not scanned, start checking from yesterday
     if (!days.has(todayKey)) {
       cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
@@ -456,7 +450,6 @@ export function Dashboard() {
       const key = formatter.format(cursor)
       if (!days.has(key)) break
       streak += 1
-      // Move back exactly 24 hours in UTC (no local timezone interference)
       cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
     }
     return streak
@@ -528,7 +521,6 @@ export function Dashboard() {
             
             {/* Arc Gauge SVG */}
             <svg viewBox='0 0 200 120' className='w-full max-w-sm mb-6' style={{ height: 'auto' }}>
-              {/* Background arc */}
               <path
                 d='M 20 100 A 80 80 0 0 1 180 100'
                 stroke='currentColor'
@@ -537,8 +529,6 @@ export function Dashboard() {
                 className='text-muted/20'
                 strokeLinecap='round'
               />
-              
-              {/* Progress arc */}
               <path
                 d='M 20 100 A 80 80 0 0 1 180 100'
                 stroke='#00ff88'
