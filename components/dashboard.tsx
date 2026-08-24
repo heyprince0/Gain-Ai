@@ -1,13 +1,25 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell, Zap, Plus, Utensils, Clock, ScanLine } from 'lucide-react'
+import {
+  Activity,
+  TrendingUp,
+  Flame,
+  Target,
+  Calendar,
+  Loader as Loader2,
+  User,
+  Dumbbell,
+  Zap,
+  Plus,
+  Utensils,
+  Clock,
+  ScanLine,
+  Download,
+} from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import { TodayWorkoutCard } from '@/components/today-workout-card'
@@ -17,6 +29,11 @@ import { LogMealDialog } from '@/components/log-meal-dialog'
 import { QrScannerDialog } from '@/components/qr-scanner-dialog'
 import { useGymBranding } from '@/lib/use-gym-branding'
 import { AccessRevokedModal } from '@/components/access-revoked-modal'
+import {
+  canInstallPwa,
+  isStandaloneDisplay,
+  getDeferredInstallPrompt,
+} from '@/lib/pwa-install'
 
 interface Profile {
   id: string
@@ -76,7 +93,7 @@ const formatIST = (dateString: string, timeOnly = false) => {
       timeZone: 'Asia/Kolkata',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
     })
   }
   return date.toLocaleString('en-IN', {
@@ -85,7 +102,7 @@ const formatIST = (dateString: string, timeOnly = false) => {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
   })
 }
 
@@ -109,12 +126,42 @@ export function Dashboard() {
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [installable, setInstallable] = useState(false)
 
-  const displayName = profile?.name ||
+  const displayName =
+    profile?.name ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email?.split('@')[0] ||
     'User'
+
+  // Check if PWA is installable
+  useEffect(() => {
+    const checkInstall = async () => {
+      if (isStandaloneDisplay()) {
+        setInstallable(false)
+        return
+      }
+      const prompt = getDeferredInstallPrompt()
+      setInstallable(!!prompt)
+    }
+
+    checkInstall()
+
+    const handler = () => {
+      const prompt = getDeferredInstallPrompt()
+      setInstallable(!!prompt)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    const installedHandler = () => setInstallable(false)
+    window.addEventListener('appinstalled', installedHandler)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', installedHandler)
+    }
+  }, [])
 
   const refetchData = async () => {
     if (!user) return
@@ -126,7 +173,7 @@ export function Dashboard() {
           timeZone: 'Asia/Kolkata',
           year: 'numeric',
           month: '2-digit',
-          day: '2-digit'
+          day: '2-digit',
         }).format(now)
         const istMidnightUTC = new Date(`${istDate}T00:00:00+05:30`)
         return istMidnightUTC.toISOString()
@@ -207,6 +254,7 @@ export function Dashboard() {
     return Math.round(s)
   }
 
+  // Access revocation check
   useEffect(() => {
     if (!user || !profile?.gym_id) return
 
@@ -240,15 +288,17 @@ export function Dashboard() {
     }
   }, [user, profile?.gym_id])
 
+  // Main data fetch
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return
 
       try {
-        // ✅ FIX: use maybeSingle() instead of single() to avoid 406 error
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
+          .select(
+            'id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id'
+          )
           .eq('id', user.id)
           .maybeSingle()
 
@@ -263,7 +313,7 @@ export function Dashboard() {
             timeZone: 'Asia/Kolkata',
             year: 'numeric',
             month: '2-digit',
-            day: '2-digit'
+            day: '2-digit',
           }).format(now)
           const istMidnightUTC = new Date(`${istDate}T00:00:00+05:30`)
           return istMidnightUTC.toISOString()
@@ -383,20 +433,18 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className='flex min-h-screen items-center justify-center'>
-        <Loader2 className='h-8 w-8 animate-spin text-primary' />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   if (!profile) {
-    // ✅ Show a message to complete profile instead of crashing
     return (
-      <div className='flex min-h-screen items-center justify-center'>
-        <div className='text-center'>
-          <h2 className='text-xl font-semibold text-foreground mb-2'>Complete your profile</h2>
-          <p className='text-muted-foreground'>Please set up your profile to start tracking your fitness journey.</p>
-          {/* You can add a "Go to Profile" button here if you have a profile page */}
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Complete your profile</h2>
+          <p className="text-muted-foreground">Please set up your profile to start tracking your fitness journey.</p>
         </div>
       </div>
     )
@@ -459,9 +507,9 @@ export function Dashboard() {
   const scannedToday = todayScans.length > 0
 
   return (
-    <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
+    <div className="mx-auto max-w-2xl w-full px-4 py-6 pb-24">
       {/* Header */}
-      <div className='mb-8 flex items-start justify-between gap-3'>
+      <div className="mb-8 flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             {branding?.logo_url && (
@@ -472,7 +520,7 @@ export function Dashboard() {
                 className="size-8 rounded-lg object-cover"
               />
             )}
-            <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Welcome, {displayName}
             </h1>
           </div>
@@ -480,25 +528,48 @@ export function Dashboard() {
             {branding?.gym_name ? `${branding.gym_name} · Today's fitness overview` : "Today's fitness overview"}
           </p>
         </div>
-        <button
-          onClick={() => setShowScanner(true)}
-          aria-label="Scan gym attendance QR"
-          className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
-        >
-          <ScanLine className='h-5 w-5' />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Install button (only if installable) */}
+          {installable && (
+            <button
+              onClick={async () => {
+                const prompt = getDeferredInstallPrompt()
+                if (!prompt) return
+                await prompt.prompt()
+                const { outcome } = await prompt.userChoice
+                if (outcome === 'accepted') setInstallable(false)
+              }}
+              aria-label="Install GainAi app"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* QR scanner button */}
+          <button
+            onClick={() => setShowScanner(true)}
+            aria-label="Scan gym attendance QR"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10"
+          >
+            <ScanLine className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Streak Strip */}
-      <div className='flex items-center gap-2 mb-3 text-sm'>
-        <Flame className={`h-4 w-4 flex-shrink-0 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
-        <span className='font-semibold text-foreground'>
+      <div className="flex items-center gap-2 mb-3 text-sm">
+        <Flame
+          className={`h-4 w-4 flex-shrink-0 ${todayScans.length > 0 ? 'text-red-500' : 'text-muted-foreground'}`}
+        />
+        <span className="font-semibold text-foreground">
           {streak} day{streak === 1 ? '' : 's'} streak
         </span>
         {streak > 0 && !scannedToday && (
           <Badge
-            className='rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500'
-            variant='secondary'
+            className="rounded-full border-0 bg-red-500/20 px-2 py-0.5 text-[10px] text-red-500"
+            variant="secondary"
           >
             At risk
           </Badge>
@@ -506,47 +577,44 @@ export function Dashboard() {
       </div>
 
       {/* Today's Workout Card - First */}
-      <TodayWorkoutCard
-        userId={user?.id ?? ''}
-        onCreatePlan={() => setShowPlanner(true)}
-      />
+      <TodayWorkoutCard userId={user?.id ?? ''} onCreatePlan={() => setShowPlanner(true)} />
 
       {/* Main Arc Calorie Gauge Card */}
-      <Card className='rounded-2xl border-border/50 mb-6 bg-gradient-to-br from-card to-card/80'>
-        <CardContent className='p-8'>
-          <div className='flex flex-col items-center'>
-            <p className='text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6'>
+      <Card className="rounded-2xl border-border/50 mb-6 bg-gradient-to-br from-card to-card/80">
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6">
               Calorie Summary
             </p>
-            
+
             {/* Arc Gauge SVG */}
-            <svg viewBox='0 0 200 120' className='w-full max-w-sm mb-6' style={{ height: 'auto' }}>
+            <svg viewBox="0 0 200 120" className="w-full max-w-sm mb-6" style={{ height: 'auto' }}>
               <path
-                d='M 20 100 A 80 80 0 0 1 180 100'
-                stroke='currentColor'
-                strokeWidth='8'
-                fill='none'
-                className='text-muted/20'
-                strokeLinecap='round'
+                d="M 20 100 A 80 80 0 0 1 180 100"
+                stroke="currentColor"
+                strokeWidth="8"
+                fill="none"
+                className="text-muted/20"
+                strokeLinecap="round"
               />
               <path
-                d='M 20 100 A 80 80 0 0 1 180 100'
-                stroke='#00ff88'
-                strokeWidth='8'
-                fill='none'
+                d="M 20 100 A 80 80 0 0 1 180 100"
+                stroke="#00ff88"
+                strokeWidth="8"
+                fill="none"
                 strokeDasharray={`${(calPercent / 100) * 251.33} 251.33`}
-                strokeLinecap='round'
-                opacity='0.8'
+                strokeLinecap="round"
+                opacity="0.8"
               />
             </svg>
 
-            <div className='text-center'>
-              <div className='text-4xl font-bold text-foreground mb-1'>
-                {profile.calorie_goal - todayStats.calories < 0 
-                  ? 0 
+            <div className="text-center">
+              <div className="text-4xl font-bold text-foreground mb-1">
+                {profile.calorie_goal - todayStats.calories < 0
+                  ? 0
                   : Math.round(profile.calorie_goal - todayStats.calories)}
               </div>
-              <p className='text-xs text-muted-foreground mb-4'>
+              <p className="text-xs text-muted-foreground mb-4">
                 kcal left ({todayStats.calories} of {profile.calorie_goal})
               </p>
             </div>
@@ -555,50 +623,50 @@ export function Dashboard() {
       </Card>
 
       {/* Macro Chips - Grid */}
-      <div className='grid grid-cols-3 gap-3 mb-6'>
-        <MacroChip 
-          label='Protein' 
-          current={Math.round(todayStats.protein)} 
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <MacroChip
+          label="Protein"
+          current={Math.round(todayStats.protein)}
           goal={profile.protein_goal}
           icon={Target}
-          color='#3b82f6'
+          color="#3b82f6"
         />
-        <MacroChip 
-          label='Carbs' 
-          current={Math.round(todayStats.carbs)} 
+        <MacroChip
+          label="Carbs"
+          current={Math.round(todayStats.carbs)}
           goal={profile.carbs_goal ?? 0}
           icon={Flame}
-          color='#f59e0b'
+          color="#f59e0b"
         />
-        <MacroChip 
-          label='Fats' 
-          current={Math.round(todayStats.fats)} 
+        <MacroChip
+          label="Fats"
+          current={Math.round(todayStats.fats)}
           goal={profile.fat_goal ?? 0}
           icon={Activity}
-          color='#ec4899'
+          color="#ec4899"
         />
       </div>
 
       {/* Body Stats and Fuel Score Row */}
-      <div className='grid grid-cols-2 gap-3 mb-6'>
-        <Card className='rounded-2xl border-border/50'>
-          <CardContent className='p-4'>
-            <div className='flex items-center gap-2 mb-2'>
-              <Activity className='h-4 w-4 text-primary' />
-              <span className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Body</span>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Card className="rounded-2xl border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Body</span>
             </div>
             {bodyScan?.body_fat != null ? (
-              <div className='flex items-baseline gap-1'>
-                <span className='text-2xl font-bold text-foreground'>{bodyScan.body_fat}%</span>
-                <span className='text-xs text-muted-foreground'>fat</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-foreground">{bodyScan.body_fat}%</span>
+                <span className="text-xs text-muted-foreground">fat</span>
               </div>
             ) : (
-              <span className='text-sm text-muted-foreground'>No scan yet</span>
+              <span className="text-sm text-muted-foreground">No scan yet</span>
             )}
             {bodyScan?.body_type && (
               <Badge
-                className='rounded-full border-0 bg-primary/10 px-2 py-0.5 text-[10px] text-primary mt-2'
-                variant='secondary'
+                className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-[10px] text-primary mt-2"
+                variant="secondary"
               >
                 {bodyScan.body_type}
               </Badge>
@@ -616,20 +684,22 @@ export function Dashboard() {
       {/* Action Button */}
       <button
         onClick={() => setShowLogMeal(true)}
-        className='w-full mb-6 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-2xl text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all'
+        className="w-full mb-6 py-3 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold rounded-2xl text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all"
       >
-        <Plus className='h-5 w-5' />
+        <Plus className="h-5 w-5" />
         Log a Meal
       </button>
 
       {/* Today's Meals List */}
       {todayScans.length > 0 && (
-        <Card className='rounded-2xl border-border/50 mb-6'>
-          <CardContent className='p-0'>
-            <div className='px-4 pt-4 pb-2'>
-              <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Today&apos;s Meals</p>
+        <Card className="rounded-2xl border-border/50 mb-6">
+          <CardContent className="p-0">
+            <div className="px-4 pt-4 pb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Today&apos;s Meals
+              </p>
             </div>
-            <div className='divide-y divide-border/50'>
+            <div className="divide-y divide-border/50">
               {todayScans.map((scan) => {
                 const raw = scan.health_score ?? 0
                 const score = normalizeScore(raw)
@@ -637,38 +707,41 @@ export function Dashboard() {
                 return (
                   <div
                     key={scan.id ?? scan.scanned_at}
-                    className='p-4 hover:bg-muted/30 transition-colors'
+                    className="p-4 hover:bg-muted/30 transition-colors"
                   >
-                    <div className='flex items-start justify-between gap-3'>
-                      <div className='flex-1'>
-                        <p className='font-semibold text-sm text-foreground mb-1'>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm text-foreground mb-1">
                           {scan.food_name || 'Food Scan'}
                         </p>
-                        <div className='flex items-center gap-2'>
-                          <Clock className='h-3 w-3 text-muted-foreground' />
-                          <span className='text-xs text-muted-foreground'>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
                             {formatIST(scan.scanned_at, true)}
                           </span>
                         </div>
                       </div>
-                      <div className='text-right'>
-                        <div className='text-sm font-semibold text-foreground mb-1'>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-foreground mb-1">
                           {scan.calories ?? 0} kcal
                         </div>
-                        <div className='inline-flex items-center gap-1 px-2 py-1 rounded-lg' style={{ background: `${color}15` }}>
-                          <span className='text-xs font-semibold' style={{ color }}>
+                        <div
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
+                          style={{ background: `${color}15` }}
+                        >
+                          <span className="text-xs font-semibold" style={{ color }}>
                             {Math.round(score)}/10
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className='flex gap-2 mt-2'>
+                    <div className="flex gap-2 mt-2">
                       {[
                         { label: 'P', value: Math.round(scan.protein) },
                         { label: 'C', value: Math.round(scan.carbs) },
                         { label: 'F', value: Math.round(scan.fats) },
                       ].map((macro) => (
-                        <Badge key={macro.label} variant='secondary' className='text-xs'>
+                        <Badge key={macro.label} variant="secondary" className="text-xs">
                           {macro.label} {macro.value}g
                         </Badge>
                       ))}
@@ -682,11 +755,11 @@ export function Dashboard() {
       )}
 
       {todayScans.length === 0 && (
-        <Card className='rounded-2xl border-border/50 mb-6'>
-          <CardContent className='p-8 text-center'>
-            <Utensils className='h-8 w-8 text-muted-foreground/30 mx-auto mb-3 opacity-30' />
-            <p className='text-sm text-muted-foreground'>No meals scanned today</p>
-            <p className='text-xs text-muted-foreground mt-1'>Start by logging your first meal</p>
+        <Card className="rounded-2xl border-border/50 mb-6">
+          <CardContent className="p-8 text-center">
+            <Utensils className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3 opacity-30" />
+            <p className="text-sm text-muted-foreground">No meals scanned today</p>
+            <p className="text-xs text-muted-foreground mt-1">Start by logging your first meal</p>
           </CardContent>
         </Card>
       )}
@@ -706,17 +779,9 @@ export function Dashboard() {
         </div>
       )}
 
-      <LogMealDialog
-        open={showLogMeal}
-        onOpenChange={setShowLogMeal}
-        onMealSaved={refetchData}
-      />
+      <LogMealDialog open={showLogMeal} onOpenChange={setShowLogMeal} onMealSaved={refetchData} />
 
-      <QrScannerDialog
-        open={showScanner}
-        onOpenChange={setShowScanner}
-        userId={user?.id ?? ''}
-      />
+      <QrScannerDialog open={showScanner} onOpenChange={setShowScanner} userId={user?.id ?? ''} />
 
       <AccessRevokedModal open={accessRevoked} />
     </div>
@@ -739,22 +804,22 @@ function MacroChip({
   const percent = goal > 0 ? Math.round((current / goal) * 100) : 0
 
   return (
-    <Card className='rounded-2xl border-border/50'>
-      <CardContent className='p-3'>
-        <div className='flex items-center justify-between mb-2'>
-          <div style={{ color }} className='opacity-80'>
+    <Card className="rounded-2xl border-border/50">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div style={{ color }} className="opacity-80">
             <Icon size={18} strokeWidth={2} />
           </div>
-          <span className='text-xs font-semibold text-muted-foreground'>{label}</span>
+          <span className="text-xs font-semibold text-muted-foreground">{label}</span>
         </div>
-        <div className='mb-2'>
-          <p className='text-lg font-bold text-foreground'>
+        <div className="mb-2">
+          <p className="text-lg font-bold text-foreground">
             {current}
-            <span className='text-xs text-muted-foreground ml-0.5'>g</span>
+            <span className="text-xs text-muted-foreground ml-0.5">g</span>
           </p>
-          <p className='text-xs text-muted-foreground'>of {goal}g</p>
+          <p className="text-xs text-muted-foreground">of {goal}g</p>
         </div>
-        <Progress value={Math.min(percent, 100)} className='h-1.5' />
+        <Progress value={Math.min(percent, 100)} className="h-1.5" />
       </CardContent>
     </Card>
   )
