@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { GymAttendanceQr } from '@/components/gym-attendance-qr'
 import { GymInstallQr } from '@/components/gym-install-qr'
 import { AppearanceCard } from '@/components/appearance-card'
+import { BrandingCard } from '@/components/branding-card'
 
 export default function SettingsPage() {
   const [gym, setGym] = useState<Gym | null>(null)
@@ -207,6 +208,8 @@ export default function SettingsPage() {
           </Card>
 
           <AppearanceCard />
+
+          {gym && <BrandingCard gymId={gym.id} />}
         </div>
       </div>
 
