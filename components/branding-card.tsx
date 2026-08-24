@@ -32,41 +32,57 @@ export function BrandingCard({ gymId }: { gymId: string }) {
   }, [gymId])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setFile(f)
-    setPreview(URL.createObjectURL(f))
+    const selected = e.target.files?.[0]
+    if (!selected) return
+    if (!['image/png', 'image/jpeg', 'image/svg+xml'].includes(selected.type) || selected.size > 5 * 1024 * 1024) {
+      window.alert('Choose a PNG, JPG, or SVG image up to 5MB.')
+      e.target.value = ''
+      return
+    }
+    setFile(selected)
+    setPreview(URL.createObjectURL(selected))
   }
 
   async function save() {
-    setBusy(true)
-    let newLogoUrl = logoUrl
-
-    if (file) {
-      const ext = file.name.split('.').pop()
-      const path = `${gymId}/logo.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('gym-logos')
-        .upload(path, file, { upsert: true, cacheControl: '3600' })
-
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase.storage.from('gym-logos').getPublicUrl(path)
-        // Cache-bust so browsers/PWA re-fetch the new logo instead of an old cached one.
-        newLogoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
-      }
+    const normalizedColor = /^#[0-9a-f]{6}$/i.test(brandColor) ? brandColor : null
+    if (!normalizedColor) {
+      window.alert('Enter a valid six-digit hex color.')
+      return
     }
 
-    await supabase
-      .from('gyms')
-      .update({ logo_url: newLogoUrl, brand_color: brandColor })
-      .eq('id', gymId)
+    setBusy(true)
+    let newLogoUrl = logoUrl
+    try {
+      if (file) {
+        const ext = file.type === 'image/svg+xml' ? 'svg' : file.type === 'image/png' ? 'png' : 'jpg'
+        const path = `${gymId}/logo-${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('gym-logos')
+          .upload(path, file, { upsert: false, cacheControl: '3600', contentType: file.type })
+        if (uploadError) throw uploadError
 
-    setLogoUrl(newLogoUrl)
-    setFile(null)
-    setPreview(null)
-    setBusy(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+        const { data: publicUrlData } = supabase.storage.from('gym-logos').getPublicUrl(path)
+        newLogoUrl = publicUrlData.publicUrl
+      }
+
+      const { error: updateError } = await supabase
+        .from('gyms')
+        .update({ logo_url: newLogoUrl, brand_color: normalizedColor })
+        .eq('id', gymId)
+      if (updateError) throw updateError
+
+      setLogoUrl(newLogoUrl)
+      setBrandColor(normalizedColor)
+      setFile(null)
+      setPreview(null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (error) {
+      console.error('[v0] Branding save failed:', error)
+      window.alert('Could not save branding. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

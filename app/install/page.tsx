@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 export default function InstallPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const gymId = searchParams.get('gym')
+  const gymId = searchParams.get('gymId') ?? searchParams.get('gym')
 
   useEffect(() => {
     if (gymId) {
@@ -15,7 +15,7 @@ export default function InstallPage() {
       // The cookie is what lets the server render gym-branded metadata
       // (the dynamic manifest, page title) before any of that JS runs —
       // localStorage alone isn't visible during server rendering.
-      document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; max-age=${60 * 60 * 24 * 7}`
+      document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
     }
     // Straight to the sign-in screen — /dashboard is a protected route, so an
     // unauthenticated visitor lands directly on AuthScreen with no detour.
