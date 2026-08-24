@@ -17,13 +17,23 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function run() {
+      // ✅ Fetch full profile to check completeness
       const { data: profileRow } = await supabase
         .from('profiles')
-        .select('gym_id, phone')
+        .select('gym_id, phone, name, age, weight, height, goal')
         .eq('id', user.id)
         .maybeSingle()
 
       if (cancelled) return
+
+      // ✅ Check if profile is complete (has all required fields)
+      const isProfileComplete = profileRow &&
+        profileRow.name &&
+        profileRow.phone &&
+        profileRow.age &&
+        profileRow.weight &&
+        profileRow.height &&
+        profileRow.goal
 
       let blocked = false
 
@@ -64,7 +74,9 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
 
       const installable = await canInstallPwa()
       if (cancelled) return
-      setState(installable ? 'show-install' : 'ready')
+
+      // ✅ Only show install prompt if profile is complete
+      setState(installable && isProfileComplete ? 'show-install' : 'ready')
     }
 
     void run()
