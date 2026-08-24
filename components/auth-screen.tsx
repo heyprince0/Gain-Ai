@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { usePwaStandalone } from '@/lib/use-pwa-standalone'
+import { useGymBranding } from '@/lib/use-gym-branding'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Chrome } from 'lucide-react'
@@ -12,6 +13,7 @@ export function AuthScreen() {
   const router = useRouter()
   const { signUp, signIn, signInWithGoogle } = useAuth()
   const isStandalone = usePwaStandalone()
+  const branding = useGymBranding()
   const [role, setRole] = useState<'member' | 'owner'>('member')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -72,7 +74,15 @@ export function AuthScreen() {
     <div className='flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4'>
       <Card className='w-full max-w-md'>
         <CardHeader className='text-center'>
-          <CardTitle className='text-2xl'>GainAi</CardTitle>
+          {branding?.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={branding.logo_url}
+              alt={branding.gym_name}
+              className='mx-auto mb-2 size-14 rounded-2xl object-cover'
+            />
+          )}
+          <CardTitle className='text-2xl'>{branding?.gym_name ?? 'GainAi'}</CardTitle>
           <CardDescription>
             {isSignUp ? 'Create an account to get started' : 'Sign in to your account'}
           </CardDescription>
