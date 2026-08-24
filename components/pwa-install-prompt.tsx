@@ -2,30 +2,40 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Download } from 'lucide-react'
+import { Download, Share2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { getDeferredInstallPrompt } from '@/lib/pwa-install'
+import { getDeferredInstallPrompt, isIOSDevice, isStandaloneDisplay } from '@/lib/pwa-install'
 
 export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
   const [installing, setInstalling] = useState(false)
+  const isIOS = isIOSDevice()
 
   useEffect(() => {
-    // The browser's real signal that installation actually completed —
-    // this is what lets the screen go away, not a dismiss button.
+    // If already standalone, skip straight to ready
+    if (isStandaloneDisplay()) {
+      onInstalled()
+      return
+    }
+    // Listen for successful installation
     const installedHandler = () => onInstalled()
     window.addEventListener('appinstalled', installedHandler)
     return () => window.removeEventListener('appinstalled', installedHandler)
   }, [onInstalled])
 
-  async function handleInstallClick() {
+  const handleInstallClick = async () => {
     const prompt = getDeferredInstallPrompt()
-    if (!prompt) return // shouldn't happen — this screen only renders when installable
-    setInstalling(true)
-    await prompt.prompt()
-    const { outcome } = await prompt.userChoice
-    setInstalling(false)
-    if (outcome === 'accepted') onInstalled()
+    if (prompt) {
+      // Android native prompt
+      setInstalling(true)
+      await prompt.prompt()
+      const { outcome } = await prompt.userChoice
+      setInstalling(false)
+      if (outcome === 'accepted') onInstalled()
+    } else {
+      // iOS or fallback – just dismiss the screen (user follows OS instructions)
+      onInstalled()
+    }
   }
 
   return (
@@ -37,16 +47,32 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
           </div>
 
           <div>
-            <h1 className="text-xl font-semibold text-foreground">One last step</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {isIOS ? 'Add to Home Screen' : 'Install GainAi App'}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Install GainAi on your home screen to continue.
+              {isIOS ? (
+                <>
+                  Tap the Share button <Share2 className="inline h-4 w-4 mx-1" />
+                  and select <span className="font-medium">"Add to Home Screen"</span>
+                  <Plus className="inline h-4 w-4 mx-1" />
+                </>
+              ) : (
+                'Install the app for the best experience.'
+              )}
             </p>
           </div>
 
           <Button className="w-full" onClick={handleInstallClick} disabled={installing}>
-            <Download data-icon="inline-start" />
-            {installing ? 'Installing...' : 'Install GainAi App'}
+            <Download className="mr-2 h-4 w-4" />
+            {installing ? 'Installing...' : isIOS ? 'Continue' : 'Install App'}
           </Button>
+
+          {isIOS && (
+            <p className="text-xs text-muted-foreground">
+              After adding to home screen, open the app from your home screen.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
