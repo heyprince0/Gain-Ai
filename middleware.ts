@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
 
   // ── Panel subdomain (gym owners) ──
   if (host.startsWith('panel.gainai.space')) {
-    // If user is on panel but trying to access a member page, redirect to owner dashboard
+    // If user is on panel but not on a gym-owner path, redirect to owner dashboard
     if (!url.pathname.startsWith('/gym-owner')) {
       url.pathname = '/gym-owner/dashboard'
       return NextResponse.redirect(url)
@@ -28,12 +28,15 @@ export function middleware(request: NextRequest) {
   }
 
   // ── Apex domain (gainai.space) or www ──
-  // Redirect to app.gainai.space (member app) by default
-  if (!host.startsWith('app.') && !host.startsWith('panel.')) {
-    url.host = 'app.gainai.space'
+  // This now serves the main application without redirecting to app.gainai.space.
+  // You can add specific logic here if needed, like redirecting www to apex.
+  if (host.startsWith('www.gainai.space')) {
+    // Redirect www to apex (optional, but good for SEO)
+    url.host = 'gainai.space'
     return NextResponse.redirect(url)
   }
 
+  // Allow all other requests (including gainai.space) to proceed normally
   return NextResponse.next()
 }
 
