@@ -33,7 +33,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 
-const APP_URL = 'https://app.gainai.space'
+const APP_URL = 'https://app.gainai.space/food-scanner'
 const PANEL_URL = 'https://panel.gainai.space'
 
 const navLinks = [
