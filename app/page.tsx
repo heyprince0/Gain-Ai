@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/accordion'
 
 // --- Subdomain URLs ---
-const APP_URL = 'https://app.gainai.space'
+const APP_URL = 'https://app.gainai.space/food-scanner'
 const PANEL_URL = 'https://panel.gainai.space'
 const MEMBER_LOGIN_URL = APP_URL
 const GET_STARTED_URL = PANEL_URL
