@@ -1,3 +1,5 @@
+// lib/pwa-install.ts
+
 'use client'
 
 type BeforeInstallPromptEvent = Event & {
@@ -8,10 +10,7 @@ type BeforeInstallPromptEvent = Event & {
 let deferredPrompt: BeforeInstallPromptEvent | null = null
 const listeners = new Set<() => void>()
 
-// Registered at module scope so it runs the moment this file is first
-// imported — as early as possible in the page's life — instead of only
-// once some deeply-nested component mounts. beforeinstallprompt typically
-// fires once per page load; a late listener can miss it entirely.
+// Attach listener as early as possible
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault()
@@ -46,11 +45,9 @@ export function isStandaloneDisplay() {
 }
 
 /**
- * Resolves whether this browser can actually show a native install prompt.
- * iOS never gets one (Apple doesn't expose the API) — those users skip the
- * install step entirely rather than being shown instructions with no way
- * to verify completion. Other browsers get a short grace window in case
- * the event just hasn't fired yet.
+ * Resolves whether this browser can show a native install prompt.
+ * iOS never gets one – those users skip the install step entirely.
+ * Other browsers get a longer grace window (5 seconds) to catch the event.
  */
 export function canInstallPwa(): Promise<boolean> {
   if (isIOSDevice()) return Promise.resolve(false)
@@ -65,6 +62,6 @@ export function canInstallPwa(): Promise<boolean> {
     const timer = setTimeout(() => {
       unsubscribe()
       resolve(false)
-    }, 1200)
+    }, 5000) // Increased from 1200ms to 5000ms
   })
 }
