@@ -10,7 +10,6 @@ type BeforeInstallPromptEvent = Event & {
 let deferredPrompt: BeforeInstallPromptEvent | null = null
 const listeners = new Set<() => void>()
 
-// Attach listener as early as possible
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault()
@@ -44,11 +43,6 @@ export function isStandaloneDisplay() {
   )
 }
 
-/**
- * Resolves whether this browser can show a native install prompt.
- * iOS never gets one – those users skip the install step entirely.
- * Other browsers get a longer grace window (5 seconds) to catch the event.
- */
 export function canInstallPwa(): Promise<boolean> {
   if (isIOSDevice()) return Promise.resolve(false)
   if (deferredPrompt) return Promise.resolve(true)
@@ -62,6 +56,6 @@ export function canInstallPwa(): Promise<boolean> {
     const timer = setTimeout(() => {
       unsubscribe()
       resolve(false)
-    }, 5000) // Increased from 1200ms to 5000ms
+    }, 8000) // 8 seconds
   })
 }
