@@ -12,12 +12,10 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
   const isIOS = isIOSDevice()
 
   useEffect(() => {
-    // If already standalone, skip straight to ready
     if (isStandaloneDisplay()) {
       onInstalled()
       return
     }
-    // Listen for successful installation
     const installedHandler = () => onInstalled()
     window.addEventListener('appinstalled', installedHandler)
     return () => window.removeEventListener('appinstalled', installedHandler)
@@ -26,14 +24,13 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
   const handleInstallClick = async () => {
     const prompt = getDeferredInstallPrompt()
     if (prompt) {
-      // Android native prompt
       setInstalling(true)
       await prompt.prompt()
       const { outcome } = await prompt.userChoice
       setInstalling(false)
       if (outcome === 'accepted') onInstalled()
     } else {
-      // iOS or fallback – just dismiss the screen (user follows OS instructions)
+      // iOS or fallback – just dismiss
       onInstalled()
     }
   }
@@ -45,7 +42,6 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
           <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
             <Image src="/logo.png" alt="GainAi" width={40} height={40} className="rounded-lg" />
           </div>
-
           <div>
             <h1 className="text-xl font-semibold text-foreground">
               {isIOS ? 'Add to Home Screen' : 'Install GainAi App'}
@@ -62,12 +58,10 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
               )}
             </p>
           </div>
-
           <Button className="w-full" onClick={handleInstallClick} disabled={installing}>
             <Download className="mr-2 h-4 w-4" />
             {installing ? 'Installing...' : isIOS ? 'Continue' : 'Install App'}
           </Button>
-
           {isIOS && (
             <p className="text-xs text-muted-foreground">
               After adding to home screen, open the app from your home screen.
