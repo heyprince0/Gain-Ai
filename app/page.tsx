@@ -6,17 +6,22 @@ import {
   Activity,
   ArrowRight,
   Bell,
+  BellRing,
   Brain,
   Check,
   CircleUserRound,
+  ClipboardCheck,
+  Clock,
   Dumbbell,
   Instagram,
   LayoutDashboard,
   Menu,
+  PiggyBank,
   ScanLine,
   ShieldCheck,
   Sparkles,
   Target,
+  TrendingUp,
   UserRound,
   Users,
   Utensils,
@@ -39,8 +44,8 @@ const MEMBER_LOGIN_URL = APP_URL
 const GET_STARTED_URL = PANEL_URL
 
 const navLinks = [
-  ['Features', '#features'],
   ['For Gyms', '#gyms'],
+  ['Features', '#features'],
   ['For Members', '#members'],
   ['Pricing', '#pricing'],
   ['FAQ', '#faq'],
@@ -49,6 +54,8 @@ const navLinks = [
 const features = [
   { icon: Users, title: 'Member Management', text: 'Keep every member, plan, and milestone organized in one place.' },
   { icon: Zap, title: 'Subscription Management', text: 'Make recurring memberships simple to manage and understand.' },
+  { icon: ClipboardCheck, title: 'Members Attendance Tracker', text: 'See who checked in today, and who might need a nudge to come back.' },
+  { icon: BellRing, title: 'Member Subscription Notifications', text: 'Automatically notify members about renewals, expiry, and plan changes.' },
   { icon: Activity, title: 'Fitness Experience', text: 'Give members a digital home for everything they do at your gym.' },
   { icon: Dumbbell, title: 'Workout Planning', text: 'Build and share personalized training plans in minutes.' },
   { icon: Utensils, title: 'Nutrition & Diet', text: 'Help members make better choices with practical guidance.' },
@@ -57,10 +64,24 @@ const features = [
   { icon: LayoutDashboard, title: 'Digital Gym', text: 'Your operations and member experience, finally connected.' },
 ]
 
+const ownerStats = [
+  { icon: Clock, stat: '10+ hrs', label: 'saved on admin every week' },
+  { icon: TrendingUp, stat: '+18%', label: 'average member retention lift' },
+  { icon: PiggyBank, stat: 'Faster', label: 'renewals with automated reminders' },
+]
+
+const ownerValueProps = [
+  { title: 'Member Management', text: 'Every member profile, plan, and note — organized and searchable in one place.' },
+  { title: 'Subscription Management & Notifications', text: 'Track renewals automatically and notify members before their plan expires.' },
+  { title: 'Attendance Tracking', text: 'Know who is showing up and who is at risk of churning, at a glance.' },
+  { title: 'Your Own Branded Gym', text: 'A digital experience with your logo, colors, and identity — not a generic app.' },
+]
+
 const faqs = [
   ['What is GainAI?', 'GainAI is the operating system for modern gyms: a simple owner dashboard paired with a branded member experience.'],
   ['Do I need technical skills to get started?', 'Not at all. Create your gym, add your members, and GainAI handles the rest with an intuitive setup flow.'],
   ['Can I use my own gym branding?', 'Yes. Your logo, colors, and identity are central to the white-label member experience.'],
+  ['How do attendance tracking and subscription notifications work?', 'GainAI logs member check-ins automatically and can send subscription renewal, expiry, and plan-change notifications on your behalf — no manual follow-up required.'],
   ['What is included in every plan?', 'Every plan includes the complete GainAI platform. The only difference is the number of members you can manage.'],
   ['Can members use GainAI on mobile?', 'Yes. Members get a responsive digital experience designed to feel great on any phone or desktop.'],
 ]
@@ -241,28 +262,28 @@ export default function HomePage() {
       </header>
 
       <main>
-        {/* Hero */}
+        {/* Hero — owner-first positioning */}
         <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 md:pb-28 md:pt-24 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div className="animate-fade-up">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
-              <Sparkles className="size-3" /> The smarter way to run a gym
+              <Sparkles className="size-3" /> The operating system for modern gym owners
             </div>
             <h1 className="max-w-2xl text-balance text-5xl font-semibold tracking-[-0.06em] md:text-7xl">
-              Turn your gym into a <span className="text-primary">smarter</span> fitness experience.
+              Run a gym that runs <span className="text-primary">itself</span>.
             </h1>
             <p className="mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
-              GainAI connects your gym operations with a modern digital member experience, so your team can focus on what matters: helping people get stronger.
+              GainAI replaces spreadsheets, manual reminders, and disconnected tools with one dashboard for members, subscriptions, attendance, and a branded member experience — so you spend less time on admin and more time growing your gym.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild>
-                <a href={PANEL_URL}>Start Your Gym <ArrowRight className="ml-2 size-4" /></a>
+                <a href={PANEL_URL}>Start Your Gym Free <ArrowRight className="ml-2 size-4" /></a>
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <a href={APP_URL}>I&apos;m a Member</a>
               </Button>
             </div>
             <p className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-              <ShieldCheck className="size-4 text-primary" /> No complicated setup. Give your gym a modern digital experience.
+              <ShieldCheck className="size-4 text-primary" /> No complicated setup. Be up and running the same day.
             </p>
           </div>
           <div className="animate-fade-up [animation-delay:120ms]">
@@ -270,38 +291,92 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* User Type Selection */}
-        <section className="border-y border-border bg-secondary/40 py-20" id="gyms">
+        {/* For Gym Owners — primary, high visual weight */}
+        <section className="border-y border-border bg-secondary/40 py-24" id="gyms">
           <div className="mx-auto max-w-7xl px-5 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-medium text-primary">One platform. Two powerful experiences.</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Choose your GainAI experience.</h2>
+            <div className="max-w-2xl">
+              <p className="text-sm font-medium text-primary">Built for gym owners, first</p>
+              <h2 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
+                Everything you need to run your gym. Nothing you don&apos;t.
+              </h2>
+              <p className="mt-5 text-base leading-7 text-muted-foreground">
+                Stop chasing renewals in spreadsheets and juggling apps that don&apos;t talk to each other. GainAI gives you one clear system to manage members, collect subscriptions, track attendance, and keep every member engaged — automatically.
+              </p>
             </div>
-            <div className="mt-10 grid gap-5 md:grid-cols-2">
+
+            {/* Owner stats */}
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {ownerStats.map(({ icon: Icon, stat, label }) => (
+                <div key={label} className="rounded-2xl border border-border bg-background p-6">
+                  <div className="inline-flex rounded-lg bg-primary/15 p-2 text-primary"><Icon className="size-5" /></div>
+                  <p className="mt-4 text-3xl font-semibold tracking-tight">{stat}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-14 grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+              <div>
+                <h3 className="text-xl font-semibold">Built to solve real owner problems</h3>
+                <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                  {ownerValueProps.map(({ title, text }) => (
+                    <div key={title} className="flex gap-3 rounded-2xl border border-border bg-background p-5">
+                      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+                        <Check className="size-3.5" />
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold">{title}</p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button className="mt-8" size="lg" asChild>
+                  <a href={PANEL_URL}>Set Up My Gym <ArrowRight className="ml-2 size-4" /></a>
+                </Button>
+              </div>
+
               <Card className="border-primary/50 bg-primary p-2 text-primary-foreground shadow-xl shadow-primary/10">
                 <div className="rounded-[calc(var(--radius)-2px)] p-6 md:p-8">
                   <Dumbbell className="size-8" />
-                  <h3 className="mt-12 text-2xl font-semibold">I&apos;m a Gym Owner</h3>
-                  <p className="mt-3 max-w-sm text-sm leading-6 opacity-80">
-                    Run your gym with less admin and give members an experience they&apos;ll love coming back to.
+                  <h3 className="mt-8 text-2xl font-semibold">Own the whole experience</h3>
+                  <p className="mt-3 text-sm leading-6 opacity-80">
+                    Your owner dashboard and your members&apos; app run on the same platform — so what you set up once shows up everywhere, instantly.
                   </p>
+                  <ul className="mt-6 flex flex-col gap-3 text-sm opacity-90">
+                    {['New: Members Attendance Tracker', 'New: Member Subscription Notifications', 'Full white-label branding'].map((item) => (
+                      <li key={item} className="flex items-center gap-2">
+                        <Check className="size-4 shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                   <Button className="mt-7 bg-foreground text-background hover:bg-foreground/90" asChild>
-                    <a href={PANEL_URL}>Set Up My Gym <ArrowRight className="ml-2 size-4" /></a>
+                    <a href={PANEL_URL}>Get Started <ArrowRight className="ml-2 size-4" /></a>
                   </Button>
                 </div>
               </Card>
-              <Card className="p-2">
-                <div className="rounded-[calc(var(--radius)-2px)] p-6 md:p-8">
-                  <UserRound className="size-8 text-primary" />
-                  <h3 className="mt-12 text-2xl font-semibold">I&apos;m a Member</h3>
-                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
-                    Your workouts, nutrition, progress, and membership info — all in one place built around you.
-                  </p>
-                  <Button className="mt-7" variant="outline" asChild>
-                    <a href={APP_URL}>Open Member App <ArrowRight className="ml-2 size-4" /></a>
-                  </Button>
-                </div>
-              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* For Members — lighter, secondary weight */}
+        <section className="py-16" id="members">
+          <div className="mx-auto max-w-7xl px-5 lg:px-8">
+            <div className="flex flex-col gap-8 rounded-2xl border border-border p-6 sm:flex-row sm:items-center sm:justify-between md:p-8">
+              <div className="max-w-xl">
+                <p className="text-sm font-medium text-primary">For your members</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">A branded app your members will actually enjoy using.</h2>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Workouts, nutrition, a food scanner, and their membership details — all in one place, styled like your gym.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <UserRound className="hidden size-8 text-primary sm:block" />
+                <Button variant="outline" asChild>
+                  <a href={APP_URL}>Open Member App <ArrowRight className="ml-2 size-4" /></a>
+                </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -317,7 +392,7 @@ export default function HomePage() {
               Stop stitching together tools that were never designed to work together. GainAI brings your operations and your members into one clear system.
             </p>
           </div>
-          <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-5">
             {features.map(({ icon: Icon, title, text }) => (
               <div key={title} className="bg-background p-6 transition-colors hover:bg-secondary">
                 <Icon className="size-5 text-primary" />
@@ -345,7 +420,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="flex flex-col gap-4 text-sm text-muted-foreground">
-                    {['Member information spread across spreadsheets', 'Manual follow-ups and repetitive admin', 'A generic experience after the front desk', 'Missed opportunities to keep members engaged'].map((item) => (
+                    {['Member information spread across spreadsheets', 'Manual follow-ups and repetitive admin', 'No visibility into who is actually showing up', 'Missed renewals and forgotten subscription reminders'].map((item) => (
                       <li key={item} className="flex gap-3">
                         <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                         {item}
@@ -363,7 +438,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="flex flex-col gap-4 text-sm opacity-85">
-                    {['One source of truth for your members', 'Simple tools your team actually enjoys using', 'A branded experience members open every day', 'More visibility into retention and growth'].map((item) => (
+                    {['One source of truth for your members', 'Attendance tracked automatically, every visit', 'Subscription notifications sent for you, on time', 'A branded experience members open every day'].map((item) => (
                       <li key={item} className="flex gap-3">
                         <Check className="mt-0.5 size-4 shrink-0" />
                         {item}
@@ -385,7 +460,7 @@ export default function HomePage() {
           <div className="mt-14 grid gap-10 md:grid-cols-3">
             {[
               ['01', 'Create Your Gym', 'Set up your profile, brand, and membership structure in one focused flow.'],
-              ['02', 'Add Your Members', 'Bring your community in with the tools to organize and manage everyone.'],
+              ['02', 'Add Your Members', 'Bring your community in with the tools to organize, manage, and track everyone.'],
               ['03', 'Give Members Their Digital Experience', 'Your members log in to a space that feels like it was made for them.'],
             ].map(([number, title, text], index) => (
               <div key={number} className="relative text-center md:text-left">
@@ -403,7 +478,7 @@ export default function HomePage() {
         </section>
 
         {/* White Label */}
-        <section className="border-y border-border bg-foreground py-24 text-background" id="members">
+        <section className="border-y border-border bg-foreground py-24 text-background">
           <div className="mx-auto grid max-w-7xl items-center gap-16 px-5 lg:grid-cols-2 lg:px-8">
             <div>
               <p className="text-sm font-medium text-primary">Your identity, everywhere</p>
@@ -430,7 +505,7 @@ export default function HomePage() {
               A helpful digital companion turns good intentions into consistent habits — before, during, and after every workout.
             </p>
             <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-              {['Personalized workouts', 'Nutrition guidance', 'Food scanner', 'Progress tracking', 'Membership info'].map((item) => (
+              {['Personalized workouts', 'Nutrition guidance', 'Food scanner', 'Progress tracking', 'Subscription alerts', 'Membership info'].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm">
                   <span className="grid size-6 place-items-center rounded-full bg-primary/15 text-primary">
                     <Check className="size-3" />
@@ -484,7 +559,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="flex flex-col gap-3 text-sm">
-                    {['All GainAI core features', 'Owner dashboard', 'Branded member experience', 'Workout and nutrition tools'].map((item) => (
+                    {['All GainAI core features', 'Owner dashboard', 'Attendance & subscription tracking', 'Branded member experience'].map((item) => (
                       <li key={item} className="flex items-center gap-2">
                         <Check className="size-4 text-primary" />
                         {item}
@@ -581,8 +656,8 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
             {[
               ['Home', '#top'],
-              ['Features', '#features'],
               ['For Gyms', '#gyms'],
+              ['Features', '#features'],
               ['For Members', '#members'],
               ['Pricing', '#pricing'],
               ['FAQ', '#faq'],
