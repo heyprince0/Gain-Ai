@@ -21,10 +21,11 @@ export default function InstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [installing, setInstalling] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const [promptAvailable, setPromptAvailable] = useState<boolean | null>(null)
 
   const branding = useGymBranding(gymId)
 
-  // ── Extract gymId from subdomain or query ──
+  // ── Extract gymId ──
   useEffect(() => {
     const fromQuery = searchParams.get('gymId') ?? searchParams.get('gym')
     if (fromQuery) {
@@ -49,7 +50,6 @@ export default function InstallPage() {
   // ── If already installed, skip ──
   useEffect(() => {
     if (gymId && isStandaloneDisplay()) {
-      // Already installed – go to app
       router.replace('https://app.gainai.space/dashboard')
     }
   }, [gymId, router])
@@ -60,16 +60,30 @@ export default function InstallPage() {
     const existingPrompt = getDeferredInstallPrompt()
     if (existingPrompt) {
       setDeferredPrompt(existingPrompt)
+      setPromptAvailable(true)
       return
     }
 
     // Subscribe to future capture
     const unsubscribe = onInstallPromptCaptured(() => {
       const prompt = getDeferredInstallPrompt()
-      if (prompt) setDeferredPrompt(prompt)
+      if (prompt) {
+        setDeferredPrompt(prompt)
+        setPromptAvailable(true)
+      }
     })
 
-    return () => unsubscribe()
+    // Timeout fallback: if no prompt after 5 seconds, mark as unavailable
+    const timeout = setTimeout(() => {
+      if (!getDeferredInstallPrompt()) {
+        setPromptAvailable(false)
+      }
+    }, 5000)
+
+    return () => {
+      unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [])
 
   // ── Handle install ──
@@ -85,10 +99,9 @@ export default function InstallPage() {
   }
 
   // ── Skip to web app ──
-  const handleSkip = () => {
+  const handleContinue = () => {
     if (gymId) {
       localStorage.setItem('gainai_pending_gym_id', gymId)
-      // cookie is already set by middleware, but ensure it's there
       document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; domain=.gainai.space; max-age=31536000; samesite=lax`
     }
     router.replace('https://app.gainai.space/dashboard')
@@ -107,6 +120,10 @@ export default function InstallPage() {
   const gymName = branding.gym_name || 'Gym'
   const brandColor = branding.brand_color || '#00ff88'
 
+  // ── Show install button if prompt is available ──
+  const showInstall = promptAvailable === true && !isIOS
+  const showFallback = promptAvailable === false || isIOS
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted flex flex-col items-center justify-center p-4">
       <Card className="w-full max-w-md border-border/50 shadow-xl">
@@ -120,6 +137,7 @@ export default function InstallPage() {
                 width={80}
                 height={80}
                 className="h-full w-full object-cover"
+                priority
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center" style={{ backgroundColor: brandColor }}>
@@ -130,49 +148,32 @@ export default function InstallPage() {
 
           <div>
             <h1 className="text-2xl font-bold text-foreground">{gymName}</h1>
-            <p className="text-sm text-muted-foreground mt-1">Get the app for the best experience.</p>
+            <p className="text-sm text-muted-foreground mt-1">Download the app for the best experience.</p>
           </div>
 
           {/* Phone Mockup */}
           <div className="relative w-full max-w-[200px] aspect-[9/19] rounded-3xl border-4 border-foreground/10 bg-muted/30 shadow-2xl overflow-hidden">
             <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-gradient-to-b from-background/80 to-background/50">
               <Smartphone className="h-10 w-10 text-primary opacity-40" />
-              <p className="text-xs text-muted-foreground mt-2 opacity-60">Your app is ready</p>
+              <p className="text-xs text-muted-foreground mt-2 opacity-60">Download the app</p>
             </div>
           </div>
 
-          {/* Install Button or iOS instructions */}
-          {!isIOS && deferredPrompt ? (
+          {/* ─── Install Button (Primary) ─── */}
+          {showInstall ? (
             <Button
               onClick={handleInstall}
               disabled={installing}
-              className="w-full bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all text-base py-6 h-14"
+              className="w-full bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all text-base py-6 h-14 text-lg"
             >
               <Download className="mr-2 h-5 w-5" />
               {installing ? 'Installing...' : 'Install App'}
             </Button>
-          ) : isIOS ? (
-            <div className="w-full space-y-3">
-              <div className="rounded-lg bg-muted/30 p-4 text-left text-sm text-muted-foreground">
-                <p className="font-semibold text-foreground">Install on iOS:</p>
-                <ol className="mt-2 list-decimal list-inside space-y-1 text-xs">
-                  <li>Tap the Share button <span className="inline-block mx-1">📤</span></li>
-                  <li>Select <strong>"Add to Home Screen"</strong></li>
-                  <li>Tap <strong>"Add"</strong> to install</li>
-                </ol>
-              </div>
-              <Button
-                onClick={handleSkip}
-                variant="outline"
-                className="w-full"
-              >
-                Continue to Web App <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
           ) : (
-            // Fallback: no prompt (e.g., unsupported browser)
+            // ─── Fallback: Continue Button ───
             <Button
-              onClick={handleSkip}
+              onClick={handleContinue}
+              variant="outline"
               className="w-full"
             >
               Continue to Web App <ArrowRight className="ml-2 h-4 w-4" />
@@ -180,7 +181,7 @@ export default function InstallPage() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            {!isIOS && deferredPrompt
+            {showInstall
               ? 'Install now to get the best experience on your home screen.'
               : 'Use the web app directly, or install for offline access.'}
           </p>
