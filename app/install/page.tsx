@@ -7,7 +7,12 @@ import { Download, ArrowRight, Smartphone, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useGymBranding } from '@/hooks/use-gym-branding'
-import { getDeferredInstallPrompt, isIOSDevice, isStandaloneDisplay } from '@/lib/pwa-install'
+import {
+  getDeferredInstallPrompt,
+  isIOSDevice,
+  isStandaloneDisplay,
+  onInstallPromptCaptured,  // 🔁 New import
+} from '@/lib/pwa-install'
 
 export default function InstallPage() {
   const router = useRouter()
@@ -17,10 +22,9 @@ export default function InstallPage() {
   const [installing, setInstalling] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
-  // Get gym branding
   const branding = useGymBranding(gymId)
 
-  // ── Extract gymId from subdomain or query ──
+  // ── Extract gymId ──
   useEffect(() => {
     const fromQuery = searchParams.get('gymId') ?? searchParams.get('gym')
     if (fromQuery) {
@@ -43,40 +47,32 @@ export default function InstallPage() {
     setIsIOS(isIOSDevice())
   }, [])
 
-  // ── Store the deferred install prompt when available ──
-  useEffect(() => {
-    const prompt = getDeferredInstallPrompt()
-    if (prompt) {
-      setDeferredPrompt(prompt)
-    }
-  }, [])
-
-  // ── Listen for appinstalled ──
-  useEffect(() => {
-    const handleInstalled = () => {
-      // After install, redirect to the app (cookie already set)
-      router.replace('https://app.gainai.space/dashboard')
-    }
-    window.addEventListener('appinstalled', handleInstalled)
-    return () => window.removeEventListener('appinstalled', handleInstalled)
-  }, [router])
-
-  // ── If no gymId, redirect home ──
-  useEffect(() => {
-    if (gymId === null) return
-    if (!gymId) {
-      router.replace('/')
-    }
-  }, [gymId, router])
-
-  // ── If already installed, redirect straight to app ──
+  // ── Check if already installed ──
   useEffect(() => {
     if (gymId && isStandaloneDisplay()) {
       router.replace('https://app.gainai.space/dashboard')
     }
   }, [gymId, router])
 
-  // ── Handle install click ──
+  // ── 🔁 Listen for beforeinstallprompt (reactive) ──
+  useEffect(() => {
+    // Check if already available
+    const existingPrompt = getDeferredInstallPrompt()
+    if (existingPrompt) {
+      setDeferredPrompt(existingPrompt)
+      return
+    }
+
+    // Subscribe to future capture
+    const unsubscribe = onInstallPromptCaptured(() => {
+      const prompt = getDeferredInstallPrompt()
+      if (prompt) setDeferredPrompt(prompt)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  // ── Handle install ──
   const handleInstall = async () => {
     if (!deferredPrompt) return
     setInstalling(true)
@@ -84,21 +80,20 @@ export default function InstallPage() {
     const { outcome } = await deferredPrompt.userChoice
     setInstalling(false)
     if (outcome === 'accepted') {
-      // The appinstalled event will handle redirect
+      // appinstalled event will redirect
     }
   }
 
-  // ── Skip install and go to web app ──
+  // ── Skip to web app ──
   const handleSkip = () => {
-    // Set cookie so the app knows the gym
     if (gymId) {
       localStorage.setItem('gainai_pending_gym_id', gymId)
-      document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; domain=.gainai.space; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+      document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; domain=.gainai.space; max-age=31536000; samesite=lax`
     }
     router.replace('https://app.gainai.space/dashboard')
   }
 
-  // ── Loading or invalid state ──
+  // ── Loading ──
   if (!gymId || !branding) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -132,7 +127,6 @@ export default function InstallPage() {
             )}
           </div>
 
-          {/* Gym Name */}
           <div>
             <h1 className="text-2xl font-bold text-foreground">{gymName}</h1>
             <p className="text-sm text-muted-foreground mt-1">Get the app for the best experience.</p>
@@ -146,7 +140,7 @@ export default function InstallPage() {
             </div>
           </div>
 
-          {/* Install Button */}
+          {/* Install Button or iOS instructions */}
           {!isIOS && deferredPrompt ? (
             <Button
               onClick={handleInstall}
@@ -183,7 +177,6 @@ export default function InstallPage() {
             </Button>
           )}
 
-          {/* Trust line */}
           <p className="text-xs text-muted-foreground">
             {!isIOS && deferredPrompt
               ? 'Install now to get the best experience on your home screen.'
