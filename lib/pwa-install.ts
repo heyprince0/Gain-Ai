@@ -1,5 +1,3 @@
-// lib/pwa-install.ts
-
 'use client'
 
 type BeforeInstallPromptEvent = Event & {
@@ -56,6 +54,6 @@ export function canInstallPwa(): Promise<boolean> {
     const timer = setTimeout(() => {
       unsubscribe()
       resolve(false)
-    }, 8000) // 8 seconds
+    }, 2000) // 2 seconds
   })
 }
