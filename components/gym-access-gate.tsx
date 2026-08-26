@@ -69,13 +69,13 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     }
   }, [user])
 
-  // ── 🔁 Re‑check every 2 seconds for up to 10 seconds ──
+  // ── 🔁 Re‑check every 2 seconds for up to 2 attempts ──
   useEffect(() => {
     if (state !== 'ready') return
     if (isStandaloneDisplay()) return
 
     let attempts = 0
-    const maxAttempts = 5 // 5 * 2s = 10s
+    const maxAttempts = 2 // Only 2 attempts
 
     async function poll() {
       if (attempts >= maxAttempts) return
@@ -85,11 +85,9 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
         setState('show-install')
         return
       }
-      // If still not installable, schedule next poll
       recheckTimerRef.current = setTimeout(poll, 2000)
     }
 
-    // Start polling after 1 second delay
     const initialDelay = setTimeout(poll, 1000)
 
     return () => {
