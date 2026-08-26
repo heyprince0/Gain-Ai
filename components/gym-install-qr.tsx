@@ -9,8 +9,8 @@ export function GymInstallQr({ gymId, gymName }: { gymId: string; gymName: strin
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
 
-  // 🔁 Hardcode the install URL to the apex domain, NOT the current subdomain
-  const installUrl = `https://gainai.space/install?gym=${encodeURIComponent(gymId)}`
+  // 🔁 Use subdomain: https://{gymId}.gainai.space/install
+  const installUrl = `https://${gymId}.gainai.space/install`
 
   useEffect(() => {
     if (!canvasRef.current) return
