@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button'
 export function GymInstallQr({ gymId, gymName }: { gymId: string; gymName: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
-  const url = typeof window === 'undefined' ? '' : `${window.location.origin}/install?gym=${encodeURIComponent(gymId)}`
+
+  // 🔁 Hardcode the install URL to the apex domain, NOT the current subdomain
+  const installUrl = `https://gainai.space/install?gym=${encodeURIComponent(gymId)}`
 
   useEffect(() => {
-    if (!canvasRef.current || !url) return
-    QRCode.toCanvas(canvasRef.current, url, {
+    if (!canvasRef.current) return
+    QRCode.toCanvas(canvasRef.current, installUrl, {
       width: 320,
       margin: 2,
       errorCorrectionLevel: 'M',
@@ -20,7 +22,7 @@ export function GymInstallQr({ gymId, gymName }: { gymId: string; gymName: strin
     })
       .then(() => setReady(true))
       .catch(() => setReady(false))
-  }, [url])
+  }, [installUrl])
 
   function download() {
     if (!canvasRef.current) return
@@ -40,7 +42,7 @@ export function GymInstallQr({ gymId, gymName }: { gymId: string; gymName: strin
         GainAi app under your gym's name.
       </p>
       <Button onClick={download} disabled={!ready}>
-        <Download data-icon="inline-start" />
+        <Download className="mr-2 size-4" />
         Download PNG
       </Button>
     </div>
