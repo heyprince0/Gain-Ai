@@ -38,8 +38,8 @@ export function GymInstallQr({ gymId, gymName }: { gymId: string; gymName: strin
         <canvas ref={canvasRef} aria-label={`Install QR code for ${gymName}`} className="size-52 max-w-full" />
       </div>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Print this and put it up at your gym. Scanning it takes new members straight to installing the
-        GainAi app under your gym's name.
+        Scan this QR to install the <strong>{gymName}</strong> app on your phone.
+        Your gym's branding and experience will be ready in seconds.
       </p>
       <Button onClick={download} disabled={!ready}>
         <Download className="mr-2 size-4" />
