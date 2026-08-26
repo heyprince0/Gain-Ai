@@ -22,8 +22,8 @@ export default function InstallPage() {
     // Add domain=.gainai.space so it works across all subdomains.
     document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; domain=.gainai.space; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 
-    // Redirect to the app – unauthenticated users will hit the sign-in screen.
-    router.replace('/dashboard')
+    // 🔁 Redirect to the branded member subdomain
+    router.replace('https://app.gainai.space/dashboard')
   }, [gymId, router])
 
   return (
