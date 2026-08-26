@@ -12,6 +12,7 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [state, setState] = useState<GateState>('checking')
 
+  // ── Main check (access + installability) ──
   useEffect(() => {
     if (!user) return
     let cancelled = false
@@ -67,6 +68,25 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     }
   }, [user])
 
+  // ── 🔁 Re‑check after 3 seconds if state is 'ready' but not standalone ──
+  useEffect(() => {
+    if (state !== 'ready') return
+    if (isStandaloneDisplay()) return
+
+    const timer = setTimeout(async () => {
+      // Re-check if the prompt is now available
+      if (!isStandaloneDisplay()) {
+        const installable = await canInstallPwa()
+        if (installable) {
+          setState('show-install')
+        }
+      }
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [state])
+
+  // ── Render ──
   if (state === 'checking') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
