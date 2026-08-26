@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { canInstallPwa, isStandaloneDisplay } from '@/lib/pwa-install'
@@ -11,8 +11,9 @@ type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [state, setState] = useState<GateState>('checking')
+  const recheckTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // ── Main check (access + installability) ──
+  // ── Main check ──
   useEffect(() => {
     if (!user) return
     let cancelled = false
@@ -68,22 +69,33 @@ export function GymAccessGate({ children }: { children: React.ReactNode }) {
     }
   }, [user])
 
-  // ── 🔁 Re‑check after 3 seconds if state is 'ready' but not standalone ──
+  // ── 🔁 Re‑check every 2 seconds for up to 10 seconds ──
   useEffect(() => {
     if (state !== 'ready') return
     if (isStandaloneDisplay()) return
 
-    const timer = setTimeout(async () => {
-      // Re-check if the prompt is now available
-      if (!isStandaloneDisplay()) {
-        const installable = await canInstallPwa()
-        if (installable) {
-          setState('show-install')
-        }
-      }
-    }, 3000)
+    let attempts = 0
+    const maxAttempts = 5 // 5 * 2s = 10s
 
-    return () => clearTimeout(timer)
+    async function poll() {
+      if (attempts >= maxAttempts) return
+      attempts++
+      const installable = await canInstallPwa()
+      if (installable) {
+        setState('show-install')
+        return
+      }
+      // If still not installable, schedule next poll
+      recheckTimerRef.current = setTimeout(poll, 2000)
+    }
+
+    // Start polling after 1 second delay
+    const initialDelay = setTimeout(poll, 1000)
+
+    return () => {
+      clearTimeout(initialDelay)
+      if (recheckTimerRef.current) clearTimeout(recheckTimerRef.current)
+    }
   }, [state])
 
   // ── Render ──
