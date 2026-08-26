@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { canInstallPwa, isStandaloneDisplay } from '@/lib/pwa-install'
@@ -11,116 +11,71 @@ type GateState = 'checking' | 'blocked' | 'show-install' | 'ready'
 export function GymAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [state, setState] = useState<GateState>('checking')
-  const recheckTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const generationRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── Main check ──
   useEffect(() => {
-    if (!user) return
-    let cancelled = false
+    const generation = ++generationRef.current
+    if (!user) {
+      setState('checking')
+      return
+    }
+    const userId = user.id
 
     async function run() {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('gym_id, phone')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (cancelled) return
-
+      const { data: profileRow } = await supabase.from('profiles').select('gym_id, phone').eq('id', userId).maybeSingle()
+      if (generation !== generationRef.current) return
       let blocked = false
 
       if (profileRow?.gym_id) {
-        const { data } = await supabase
-          .from('gym_members')
-          .select('app_access')
-          .eq('linked_profile_id', user.id)
-          .eq('gym_id', profileRow.gym_id)
-          .is('deleted_at', null)
-          .maybeSingle()
-        if (cancelled) return
-        if (data && !data.app_access) blocked = true
+        const { data } = await supabase.from('gym_members').select('app_access').eq('linked_profile_id', user.id).eq('gym_id', profileRow.gym_id).is('deleted_at', null).maybeSingle()
+        if (generation !== generationRef.current) return
+        blocked = Boolean(data && !data.app_access)
       } else if (profileRow?.phone) {
-        const { data } = await supabase.rpc('match_and_link_member_by_phone', {
-          p_phone: profileRow.phone,
-        })
+        const { data } = await supabase.rpc('match_and_link_member_by_phone', { p_phone: profileRow.phone })
+        if (generation !== generationRef.current) return
         const member = Array.isArray(data) ? data[0] : data
-        if (cancelled) return
-        if (member && !member.app_access && !member.linked_to_other) blocked = true
+        blocked = Boolean(member && !member.app_access && !member.linked_to_other)
       }
 
       if (blocked) {
         setState('blocked')
         return
       }
-
       if (isStandaloneDisplay()) {
         setState('ready')
         return
       }
-
-      const installable = await canInstallPwa()
-      if (cancelled) return
-      setState(installable ? 'show-install' : 'ready')
+      setState((await canInstallPwa()) ? 'show-install' : 'ready')
     }
 
     void run()
     return () => {
-      cancelled = true
+      generationRef.current++
+      if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [user])
 
-  // ── 🔁 Re‑check every 2 seconds for up to 2 attempts ──
   useEffect(() => {
-    if (state !== 'ready') return
-    if (isStandaloneDisplay()) return
-
+    if (state !== 'ready' || isStandaloneDisplay()) return
     let attempts = 0
-    const maxAttempts = 2 // Only 2 attempts
-
-    async function poll() {
-      if (attempts >= maxAttempts) return
-      attempts++
-      const installable = await canInstallPwa()
-      if (installable) {
+    const poll = async () => {
+      if (++attempts > 2 || generationRef.current === 0) return
+      if (await canInstallPwa()) {
         setState('show-install')
         return
       }
-      recheckTimerRef.current = setTimeout(poll, 2000)
+      timerRef.current = setTimeout(poll, 2000)
     }
-
-    const initialDelay = setTimeout(poll, 1000)
-
+    timerRef.current = setTimeout(poll, 1000)
     return () => {
-      clearTimeout(initialDelay)
-      if (recheckTimerRef.current) clearTimeout(recheckTimerRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = null
     }
   }, [state])
 
-  // ── Render ──
-  if (state === 'checking') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 rounded-full border-2 border-[#00ff88] border-t-transparent animate-spin" />
-      </div>
-    )
-  }
-
-  if (state === 'blocked') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-muted p-4 text-center">
-        <div className="max-w-sm">
-          <h1 className="text-xl font-semibold text-foreground">Access Not Enabled</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your gym administrator hasn't activated your GainAi access yet. Please check with your gym.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (state === 'show-install') {
-    return <PwaInstallPrompt onInstalled={() => setState('ready')} />
-  }
-
+  if (state === 'checking') return <div className="flex min-h-screen items-center justify-center bg-background"><div className="size-8 animate-spin rounded-full border-2 border-[#00ff88] border-t-transparent" /></div>
+  if (state === 'blocked') return <div className="flex min-h-screen items-center justify-center bg-background p-4 text-center"><div className="max-w-sm"><h1 className="text-xl font-semibold text-foreground">Access Not Enabled</h1><p className="mt-2 text-sm text-muted-foreground">Your gym administrator hasn&apos;t activated your GainAi access yet. Please check with your gym.</p></div></div>
+  if (state === 'show-install') return <PwaInstallPrompt onInstalled={() => setState('ready')} />
   return <>{children}</>
 }
