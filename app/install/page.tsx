@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Download, ArrowRight, Smartphone, Zap } from 'lucide-react'
@@ -21,7 +21,7 @@ export default function InstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [installing, setInstalling] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
-  const [promptAvailable, setPromptAvailable] = useState<boolean | null>(null)
+  const [installSupported, setInstallSupported] = useState<boolean | null>(null)
 
   const branding = useGymBranding(gymId)
 
@@ -47,43 +47,60 @@ export default function InstallPage() {
     setIsIOS(isIOSDevice())
   }, [])
 
-  // ── If already installed, skip ──
+  // ── If already installed, redirect ──
   useEffect(() => {
     if (gymId && isStandaloneDisplay()) {
       router.replace('https://app.gainai.space/dashboard')
     }
   }, [gymId, router])
 
-  // ── 🔁 Listen for beforeinstallprompt ──
+  // ── 🔁 Poll for beforeinstallprompt every second for 10 seconds ──
   useEffect(() => {
-    // Check if already available
-    const existingPrompt = getDeferredInstallPrompt()
-    if (existingPrompt) {
-      setDeferredPrompt(existingPrompt)
-      setPromptAvailable(true)
+    if (isIOS) {
+      setInstallSupported(false)
       return
     }
 
-    // Subscribe to future capture
+    let attempts = 0
+    const maxAttempts = 10
+    let intervalId: NodeJS.Timeout | null = null
+
+    const checkPrompt = () => {
+      attempts++
+      const prompt = getDeferredInstallPrompt()
+      if (prompt) {
+        setDeferredPrompt(prompt)
+        setInstallSupported(true)
+        if (intervalId) clearInterval(intervalId)
+        return
+      }
+      if (attempts >= maxAttempts) {
+        setInstallSupported(false)
+        if (intervalId) clearInterval(intervalId)
+      }
+    }
+
+    // Check immediately
+    checkPrompt()
+
+    // Start polling
+    intervalId = setInterval(checkPrompt, 1000)
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [isIOS])
+
+  // ── Also listen for the event via the callback (just in case) ──
+  useEffect(() => {
     const unsubscribe = onInstallPromptCaptured(() => {
       const prompt = getDeferredInstallPrompt()
       if (prompt) {
         setDeferredPrompt(prompt)
-        setPromptAvailable(true)
+        setInstallSupported(true)
       }
     })
-
-    // Timeout fallback: if no prompt after 5 seconds, mark as unavailable
-    const timeout = setTimeout(() => {
-      if (!getDeferredInstallPrompt()) {
-        setPromptAvailable(false)
-      }
-    }, 5000)
-
-    return () => {
-      unsubscribe()
-      clearTimeout(timeout)
-    }
+    return () => unsubscribe()
   }, [])
 
   // ── Handle install ──
@@ -94,11 +111,11 @@ export default function InstallPage() {
     const { outcome } = await deferredPrompt.userChoice
     setInstalling(false)
     if (outcome === 'accepted') {
-      // appinstalled event will redirect
+      // The appinstalled event will handle redirect
     }
   }
 
-  // ── Skip to web app ──
+  // ── Continue to web app ──
   const handleContinue = () => {
     if (gymId) {
       localStorage.setItem('gainai_pending_gym_id', gymId)
@@ -107,7 +124,7 @@ export default function InstallPage() {
     router.replace('https://app.gainai.space/dashboard')
   }
 
-  // ── Loading ──
+  // ── Loading state ──
   if (!gymId || !branding) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -120,9 +137,10 @@ export default function InstallPage() {
   const gymName = branding.gym_name || 'Gym'
   const brandColor = branding.brand_color || '#00ff88'
 
-  // ── Show install button if prompt is available ──
-  const showInstall = promptAvailable === true && !isIOS
-  const showFallback = promptAvailable === false || isIOS
+  // ── Determine UI ──
+  const showInstall = installSupported === true && !isIOS
+  const showFallback = installSupported === false || isIOS
+  const isChecking = installSupported === null
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted flex flex-col items-center justify-center p-4">
@@ -159,7 +177,7 @@ export default function InstallPage() {
             </div>
           </div>
 
-          {/* ─── Install Button (Primary) ─── */}
+          {/* ─── INSTALL BUTTON ─── */}
           {showInstall ? (
             <Button
               onClick={handleInstall}
@@ -169,8 +187,12 @@ export default function InstallPage() {
               <Download className="mr-2 h-5 w-5" />
               {installing ? 'Installing...' : 'Install App'}
             </Button>
+          ) : isChecking ? (
+            <Button disabled className="w-full opacity-70">
+              <span className="animate-pulse">Checking...</span>
+            </Button>
           ) : (
-            // ─── Fallback: Continue Button ───
+            // ─── FALLBACK: Continue ───
             <Button
               onClick={handleContinue}
               variant="outline"
@@ -183,7 +205,9 @@ export default function InstallPage() {
           <p className="text-xs text-muted-foreground">
             {showInstall
               ? 'Install now to get the best experience on your home screen.'
-              : 'Use the web app directly, or install for offline access.'}
+              : isChecking
+                ? 'Preparing your installation...'
+                : 'Use the web app directly, or install for offline access.'}
           </p>
         </CardContent>
       </Card>
