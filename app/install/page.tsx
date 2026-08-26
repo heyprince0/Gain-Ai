@@ -11,7 +11,7 @@ import {
   getDeferredInstallPrompt,
   isIOSDevice,
   isStandaloneDisplay,
-  onInstallPromptCaptured,  // 🔁 New import
+  onInstallPromptCaptured,
 } from '@/lib/pwa-install'
 
 export default function InstallPage() {
@@ -24,14 +24,13 @@ export default function InstallPage() {
 
   const branding = useGymBranding(gymId)
 
-  // ── Extract gymId ──
+  // ── Extract gymId from subdomain or query ──
   useEffect(() => {
     const fromQuery = searchParams.get('gymId') ?? searchParams.get('gym')
     if (fromQuery) {
       setGymId(fromQuery)
       return
     }
-
     if (typeof window !== 'undefined') {
       const host = window.location.hostname
       const parts = host.split('.')
@@ -47,14 +46,15 @@ export default function InstallPage() {
     setIsIOS(isIOSDevice())
   }, [])
 
-  // ── Check if already installed ──
+  // ── If already installed, skip ──
   useEffect(() => {
     if (gymId && isStandaloneDisplay()) {
+      // Already installed – go to app
       router.replace('https://app.gainai.space/dashboard')
     }
   }, [gymId, router])
 
-  // ── 🔁 Listen for beforeinstallprompt (reactive) ──
+  // ── 🔁 Listen for beforeinstallprompt ──
   useEffect(() => {
     // Check if already available
     const existingPrompt = getDeferredInstallPrompt()
@@ -88,6 +88,7 @@ export default function InstallPage() {
   const handleSkip = () => {
     if (gymId) {
       localStorage.setItem('gainai_pending_gym_id', gymId)
+      // cookie is already set by middleware, but ensure it's there
       document.cookie = `gainai_pending_gym_id=${encodeURIComponent(gymId)}; path=/; domain=.gainai.space; max-age=31536000; samesite=lax`
     }
     router.replace('https://app.gainai.space/dashboard')
@@ -169,6 +170,7 @@ export default function InstallPage() {
               </Button>
             </div>
           ) : (
+            // Fallback: no prompt (e.g., unsupported browser)
             <Button
               onClick={handleSkip}
               className="w-full"
