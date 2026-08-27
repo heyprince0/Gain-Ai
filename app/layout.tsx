@@ -5,9 +5,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
 import { BottomNavProvider } from "@/contexts/bottom-nav-context"
+import { ServiceWorkerRegister } from "@/components/sw-register"
 import "./globals.css"
 
-// 👇 This line runs the module's side effects BEFORE any component mounts
 import "@/lib/pwa-install"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: "/logo.png",
     },
-    manifest: gymId ? `/api/manifest/${gymId}` : "/manifest.json",
+    manifest: gymId ? `/manifest/${gymId}` : "/manifest.json",
   }
 }
 
@@ -44,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <ServiceWorkerRegister />
         <AuthProvider>
           <ThemeProvider
             attribute="class"
