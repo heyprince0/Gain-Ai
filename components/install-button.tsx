@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Check, Download, ExternalLink, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+// 🆕 Import Next.js navigation hooks
+import { usePathname, useRouter } from 'next/navigation'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -21,6 +23,10 @@ function isStandalone() {
 }
 
 export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps) {
+  // 🆕 Get current path and router instance
+  const pathname = usePathname()
+  const router = useRouter()
+
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'standalone'>('desktop')
   const [installed, setInstalled] = useState(false)
@@ -61,20 +67,97 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
     else setDismissed(true)
   }
 
+  // 🆕 FIXED: Standalone / Installed block
   if (installed || platform === 'standalone') {
-    return <div className="flex flex-col items-center gap-3 text-center"><p className="flex items-center gap-2 text-sm text-white/70"><Check className="size-4" style={{ color: accentColor }} /> You&apos;re already using the installed {gymName} app.</p><Button asChild variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"><a href={`/g/${encodeURIComponent(slug)}`}><ExternalLink data-icon="inline-start" />Continue to app</a></Button></div>
+    const targetPath = `/g/${encodeURIComponent(slug)}`
+
+    // If we are ALREADY on the dashboard, hide the "Continue" button completely
+    if (pathname === targetPath) {
+      return (
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="flex items-center gap-2 text-sm text-white/70">
+            <Check className="size-4" style={{ color: accentColor }} />
+            You&apos;re already on the {gymName} dashboard.
+          </p>
+        </div>
+      )
+    }
+
+    // If we are on a different page (e.g., welcome/onboarding), show the button
+    // that uses router.push() for a clean, client-side navigation
+    return (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className="flex items-center gap-2 text-sm text-white/70">
+          <Check className="size-4" style={{ color: accentColor }} />
+          App installed! Continue to your dashboard.
+        </p>
+        <Button
+          variant="outline"
+          className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+          onClick={() => router.push(targetPath)}
+        >
+          <ExternalLink data-icon="inline-start" />
+          Continue to app
+        </Button>
+      </div>
+    )
   }
+
   if (platform === 'ios') {
-    return <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm leading-6 text-white/70"><p className="font-semibold text-white">Install {gymName} App</p><ol className="list-inside list-decimal text-left"><li>Tap the Share button in Safari.</li><li>Select <strong className="text-white">Add to Home Screen</strong>.</li><li>Tap <strong className="text-white">Add</strong>.</li></ol><Share2 className="size-5" style={{ color: accentColor }} /></div>
+    return (
+      <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm leading-6 text-white/70">
+        <p className="font-semibold text-white">Install {gymName} App</p>
+        <ol className="list-inside list-decimal text-left">
+          <li>Tap the Share button in Safari.</li>
+          <li>Select <strong className="text-white">Add to Home Screen</strong>.</li>
+          <li>Tap <strong className="text-white">Add</strong>.</li>
+        </ol>
+        <Share2 className="size-5" style={{ color: accentColor }} />
+      </div>
+    )
   }
+
   if (installPrompt && !dismissed) {
-    return <Button type="button" onClick={install} disabled={installing} className="min-w-48 rounded-full px-7 py-6 text-sm font-semibold text-background shadow-lg transition-transform hover:-translate-y-0.5" style={{ backgroundColor: accentColor }} aria-label={`Install ${gymName} app`}><Download data-icon="inline-start" />{installing ? 'Installing...' : `Install ${gymName} App`}</Button>
+    return (
+      <Button
+        type="button"
+        onClick={install}
+        disabled={installing}
+        className="min-w-48 rounded-full px-7 py-6 text-sm font-semibold text-background shadow-lg transition-transform hover:-translate-y-0.5"
+        style={{ backgroundColor: accentColor }}
+        aria-label={`Install ${gymName} app`}
+      >
+        <Download data-icon="inline-start" />
+        {installing ? 'Installing...' : `Install ${gymName} App`}
+      </Button>
+    )
   }
-  return <p className="max-w-xs text-center text-sm leading-6 text-white/65">Open this page on your phone to install the {gymName} app. Use your browser&apos;s menu to add it to your home screen.</p>
+
+  return (
+    <p className="max-w-xs text-center text-sm leading-6 text-white/65">
+      Open this page on your phone to install the {gymName} app. Use your browser&apos;s menu to add it to
+      your home screen.
+    </p>
+  )
 }
 
 export default InstallButton
 
+// 🆕 FIXED: GymAppLink now hides itself if already on the dashboard
 export function GymAppLink({ slug }: { slug: string }) {
-  return <a className="inline-flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:underline" href={`/g/${encodeURIComponent(slug)}`}><ExternalLink data-icon="inline-start" />Open gym app</a>
+  const pathname = usePathname()
+  const targetPath = `/g/${encodeURIComponent(slug)}`
+
+  // Don't show the link if we are already on the gym dashboard
+  if (pathname === targetPath) return null
+
+  return (
+    <a
+      className="inline-flex items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:underline"
+      href={targetPath}
+    >
+      <ExternalLink data-icon="inline-start" />
+      Open gym app
+    </a>
+  )
 }
