@@ -62,7 +62,7 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
   }
 
   if (installed || platform === 'standalone') {
-    return <div className="flex flex-col items-center gap-3 text-center"><p className="flex items-center gap-2 text-sm text-white/70"><Check className="size-4" style={{ color: accentColor }} /> You&apos;re already using the installed {gymName} app.</p><Button asChild variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"><a href="https://app.gainai.space/dashboard"><ExternalLink data-icon="inline-start" />Continue to app</a></Button></div>
+    return <div className="flex flex-col items-center gap-3 text-center"><p className="flex items-center gap-2 text-sm text-white/70"><Check className="size-4" style={{ color: accentColor }} /> You&apos;re already using the installed {gymName} app.</p><Button asChild variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"><a href={`/g/${encodeURIComponent(slug)}`}><ExternalLink data-icon="inline-start" />Continue to app</a></Button></div>
   }
   if (platform === 'ios') {
     return <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm leading-6 text-white/70"><p className="font-semibold text-white">Install {gymName} App</p><ol className="list-inside list-decimal text-left"><li>Tap the Share button in Safari.</li><li>Select <strong className="text-white">Add to Home Screen</strong>.</li><li>Tap <strong className="text-white">Add</strong>.</li></ol><Share2 className="size-5" style={{ color: accentColor }} /></div>
