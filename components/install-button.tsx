@@ -65,14 +65,15 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
     else setDismissed(true)
   }
 
-  // 🟢 FIX: If we are already on the dashboard, render NOTHING
-  // This allows the actual dashboard content to show without any distraction.
-  const targetPath = `/g/${encodeURIComponent(slug)}`
+  // 🎯 The dashboard is now the target
+  const targetPath = '/dashboard'
+
+  // If we're already on the dashboard, show nothing (let the dashboard render)
   if (pathname === targetPath) {
     return null
   }
 
-  // ✅ Now, if the user is NOT on the dashboard, we show the appropriate prompt.
+  // If the app is installed or running standalone, show "Continue" button
   if (installed || platform === 'standalone') {
     return (
       <div className="flex flex-col items-center gap-3 text-center">
@@ -92,6 +93,7 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
     )
   }
 
+  // iOS installation instructions
   if (platform === 'ios') {
     return (
       <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm leading-6 text-white/70">
@@ -106,6 +108,7 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
     )
   }
 
+  // Android / Desktop install prompt
   if (installPrompt && !dismissed) {
     return (
       <Button
@@ -132,10 +135,10 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
 
 export default InstallButton
 
-// 🟢 GymAppLink now also hides itself on the dashboard
+// 🆕 GymAppLink component fixed to go to dashboard
 export function GymAppLink({ slug }: { slug: string }) {
   const pathname = usePathname()
-  const targetPath = `/g/${encodeURIComponent(slug)}`
+  const targetPath = '/dashboard'
 
   if (pathname === targetPath) return null
 
