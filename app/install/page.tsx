@@ -135,7 +135,7 @@ export default function InstallPage() {
 
   const logoUrl = branding.logo_url
   const gymName = branding.gym_name || 'Gym'
-  const brandColor = branding.brand_color || '#00ff88'
+  const brandColor = branding.primary_color || '#00ff88'
 
   // ── Determine UI ──
   const showInstall = installSupported === true && !isIOS
