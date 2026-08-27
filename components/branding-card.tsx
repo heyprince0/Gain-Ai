@@ -20,13 +20,13 @@ export function BrandingCard({ gymId }: { gymId: string }) {
   useEffect(() => {
     supabase
       .from('gyms')
-      .select('logo_url, brand_color')
+      .select('logo_url, primary_color')   // Changed from brand_color
       .eq('id', gymId)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setLogoUrl(data.logo_url)
-          setBrandColor(data.brand_color || '#00ff88')
+          setBrandColor(data.primary_color || '#00ff88')  // Changed from brand_color
         }
       })
   }, [gymId])
@@ -67,7 +67,7 @@ export function BrandingCard({ gymId }: { gymId: string }) {
 
       const { error: updateError } = await supabase
         .from('gyms')
-        .update({ logo_url: newLogoUrl, brand_color: normalizedColor })
+        .update({ logo_url: newLogoUrl, primary_color: normalizedColor })   // Changed from brand_color
         .eq('id', gymId)
       if (updateError) throw updateError
 
