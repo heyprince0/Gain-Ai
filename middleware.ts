@@ -7,15 +7,14 @@ export function middleware(request: NextRequest) {
   const pathname = url.pathname
 
   // ── 1. PANEL SUBDOMAIN (Gym Owners) ──
-  if (host.startsWith('panel.gainai.space')) {
-    // If user is on panel but trying to access member pages, redirect to owner dashboard
-    if (!pathname.startsWith('/gym-owner')) {
-      url.pathname = '/gym-owner/dashboard'
-      return NextResponse.rewrite(url)
-    }
-    // Already on /gym-owner/* – allow
-    return NextResponse.next()
+  // ── 1. PANEL SUBDOMAIN (Gym Owners) ──
+if (host.startsWith('panel.gainai.space')) {
+  if (!pathname.startsWith('/gym-owner')) {
+    url.pathname = '/gym-owner/dashboard'
+    return NextResponse.redirect(url)   // was: NextResponse.rewrite(url)
   }
+  return NextResponse.next()
+}
 
   // ── 2. APP SUBDOMAIN (Members) ──
   if (host.startsWith('app.gainai.space')) {
