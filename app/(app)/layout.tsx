@@ -5,7 +5,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { AuthLayout } from "@/components/auth-layout"
 import { BottomNavProvider } from "@/contexts/bottom-nav-context"
 import { ServiceWorkerRegister } from "@/components/sw-register"
-import "./globals.css"
+import "../globals.css"
 import "@/lib/pwa-install"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
