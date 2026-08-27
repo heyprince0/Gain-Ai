@@ -107,8 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error && error.code !== 'PGRST116') throw error
       setHasProfile(!!data)
-    } catch (error) {
-      console.error('Error checking profile:', error)
+    } catch {
       setHasProfile(false)
     } finally {
       setProfileLoading(false)

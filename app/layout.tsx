@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: "/logo.png",
     },
-    manifest: gymId ? `/api/manifest/${gymId}` : "/manifest.json",
+    manifest: gymId ? `/manifest/${gymId}` : "/manifest.json",
   }
 }
 
