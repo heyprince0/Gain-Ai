@@ -40,7 +40,7 @@ export default async function GymInstallPage({ params }: GymPageProps) {
       </div>
       <div className="flex flex-col gap-2"><p className="font-mono text-[11px] uppercase tracking-[0.28em]" style={{ color: accentColor }}>Your gym member app</p><h1 className="text-balance text-4xl font-semibold tracking-tight">{gym.gym_name}</h1><p className="max-w-sm text-sm leading-6 text-white/60">Manage your workouts, nutrition, and progress from one place.</p></div>
       <div className="flex min-h-24 items-center justify-center"><InstallButton gymName={gym.gym_name} slug={gym.slug} accentColor={accentColor} /></div>
-      <a href={`/g/${encodeURIComponent(gym.slug)}`} className="inline-flex items-center gap-2 text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"><ExternalLink data-icon="inline-start" />Open {gym.gym_name} app</a>
+      <a href="https://app.gainai.space/dashboard" className="inline-flex items-center gap-2 text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"><ExternalLink data-icon="inline-start" />Open {gym.gym_name} app</a>
       <div className="hidden w-full flex-col items-center gap-3 border-t border-white/10 pt-6 md:flex"><p className="text-sm font-medium text-white/80">Install {gym.gym_name} App on your phone</p><GymInstallQr slug={gym.slug} gymName={gym.gym_name} /></div>
     </section>
   </main>
