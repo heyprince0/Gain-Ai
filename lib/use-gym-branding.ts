@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 export type GymBranding = {
   gym_name: string
   logo_url: string | null
-  brand_color: string | null
+  primary_color: string | null
 }
 
 function readPendingGymIdCookie(): string | null {
