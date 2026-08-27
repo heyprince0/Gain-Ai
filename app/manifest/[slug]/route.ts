@@ -12,9 +12,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   return Response.json({
     name: data.gym_name,
     short_name: data.gym_name.slice(0, 12),
-    id: `/g/${data.slug}`,
-    start_url: `/g/${data.slug}`,
-    scope: `/g/${data.slug}`,
+    id: `/g/${data.slug}`,                    // ✅ Keep this for identification
+    start_url: '/dashboard',                  // 🔥 CHANGED: Start directly on the dashboard
+    scope: '/',                               // 🔥 CHANGED: Cover EVERY route in the app
     display: 'standalone',
     background_color: '#0f1318',
     theme_color: data.primary_color || '#00ff88',
