@@ -14,7 +14,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     short_name: data.gym_name.slice(0, 12),
     id: `/g/${data.slug}`,
     start_url: `/g/${data.slug}`,
-    scope: `/g/${data.slug}/`,
+    scope: `/g/${data.slug}`,
     display: 'standalone',
     background_color: '#0f1318',
     theme_color: data.primary_color || '#00ff88',
