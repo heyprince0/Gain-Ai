@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { Download, ArrowRight, Smartphone, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { useGymBranding } from '@/hooks/use-gym-branding'
+import { useGymBranding } from '@/lib/use-gym-branding'
 import {
   getDeferredInstallPrompt,
   isIOSDevice,
