@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Check, Download, ExternalLink, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-// 🆕 Import Next.js navigation hooks
 import { usePathname, useRouter } from 'next/navigation'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,7 +22,6 @@ function isStandalone() {
 }
 
 export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps) {
-  // 🆕 Get current path and router instance
   const pathname = usePathname()
   const router = useRouter()
 
@@ -67,24 +65,15 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
     else setDismissed(true)
   }
 
-  // 🆕 FIXED: Standalone / Installed block
+  // 🟢 FIX: If we are already on the dashboard, render NOTHING
+  // This allows the actual dashboard content to show without any distraction.
+  const targetPath = `/g/${encodeURIComponent(slug)}`
+  if (pathname === targetPath) {
+    return null
+  }
+
+  // ✅ Now, if the user is NOT on the dashboard, we show the appropriate prompt.
   if (installed || platform === 'standalone') {
-    const targetPath = `/g/${encodeURIComponent(slug)}`
-
-    // If we are ALREADY on the dashboard, hide the "Continue" button completely
-    if (pathname === targetPath) {
-      return (
-        <div className="flex flex-col items-center gap-3 text-center">
-          <p className="flex items-center gap-2 text-sm text-white/70">
-            <Check className="size-4" style={{ color: accentColor }} />
-            You&apos;re already on the {gymName} dashboard.
-          </p>
-        </div>
-      )
-    }
-
-    // If we are on a different page (e.g., welcome/onboarding), show the button
-    // that uses router.push() for a clean, client-side navigation
     return (
       <div className="flex flex-col items-center gap-3 text-center">
         <p className="flex items-center gap-2 text-sm text-white/70">
@@ -143,12 +132,11 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
 
 export default InstallButton
 
-// 🆕 FIXED: GymAppLink now hides itself if already on the dashboard
+// 🟢 GymAppLink now also hides itself on the dashboard
 export function GymAppLink({ slug }: { slug: string }) {
   const pathname = usePathname()
   const targetPath = `/g/${encodeURIComponent(slug)}`
 
-  // Don't show the link if we are already on the gym dashboard
   if (pathname === targetPath) return null
 
   return (
