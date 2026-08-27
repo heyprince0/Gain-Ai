@@ -200,7 +200,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               {gym ? (
-                <GymInstallQr gymId={gym.id} gymName={gym.gym_name} />
+                <GymInstallQr slug={gym.slug} gymName={gym.gym_name} />
               ) : (
                 <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
               )}

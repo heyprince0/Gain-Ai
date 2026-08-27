@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 
-export type Gym = { id: string; gym_name: string; owner_name: string; owner_phone: string; address: string; city_area: string | null }
+export type Gym = { id: string; gym_name: string; slug: string; logo_url: string | null; primary_color: string | null; owner_name: string; owner_phone: string; address: string; city_area: string | null }
 export type Plan = { id: string; gym_id: string; plan_name: string; price: number; duration_days: number; is_active?: boolean }
 export type GymMember = { id: string; gym_id: string; linked_profile_id: string | null; name: string; phone: string; address: string; plan_id: string | null; start_date: string; end_date: string; app_access: boolean; deleted_at?: string | null; gym_subscription_plans?: Plan | null }
 
