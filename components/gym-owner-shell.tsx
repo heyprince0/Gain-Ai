@@ -6,7 +6,7 @@ import { Building2, LayoutDashboard, RefreshCw, ShoppingBag, Settings, LogOut, M
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← Changed!
 
 const links = [
   { href: '/gym-owner/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -22,7 +22,8 @@ export function GymOwnerShell({ children, title }: { children: React.ReactNode; 
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    router.replace('/gym-owner/login')
+    // Force a hard redirect to login after signOut
+    window.location.href = '/gym-owner/login'
   }
 
   return (
