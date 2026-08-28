@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import type { ElementType } from 'react'
 import { Plus, Search, Users, UserCheck, Clock3, CalendarCheck, ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,54 +14,24 @@ import { getOwnerData, memberStatus, formatDate, type GymMember, type Gym, type 
 import { supabase } from '@/lib/supabase'
 
 export default function OwnerDashboard() {
-  const router = useRouter()
   const [gym, setGym] = useState<Gym | null>(null)
   const [members, setMembers] = useState<GymMember[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [todayCount, setTodayCount] = useState<number | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-
-    async function loadOwnerDashboard() {
-      setLoading(true)
-      setLoadError(null)
-
-      try {
-        const { data } = await supabase.auth.getSession()
-
-        if (!data.session?.user) {
-          if (!cancelled) router.replace('/gym-owner/login')
-          return
-        }
-
-        const ownerData = await getOwnerData(data.session.user.id)
-        if (cancelled) return
-
-        setGym(ownerData.gym)
-        setMembers(ownerData.members)
-        setPlans(ownerData.plans)
-
-        if (ownerData.gym) {
-          void fetchTodayAttendance(ownerData.gym.id)
-        } else {
-          setTodayCount(0)
-        }
-      } catch (error) {
-        console.error('[v0] Error loading gym owner dashboard:', error)
-        if (!cancelled) setLoadError('Unable to load your gym data. Please refresh and try again.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void loadOwnerDashboard()
-    return () => {
-      cancelled = true
-    }
+    supabase.auth.getUser().then(({ data }) =>
+      data.user &&
+      getOwnerData(data.user.id).then(({ gym, members, plans }) => {
+        setGym(gym)
+        setMembers(members)
+        setPlans(plans)
+        setLoading(false)
+        if (gym) fetchTodayAttendance(gym.id)
+      })
+    )
   }, [])
 
   async function fetchTodayAttendance(gymId: string) {
@@ -103,16 +72,6 @@ export default function OwnerDashboard() {
   return (
     <GymOwnerShell title="Overview">
       <div className="flex flex-col gap-8">
-        {loadError && (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-              <p className="font-medium">{loadError}</p>
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                Refresh dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        )}
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <p className="text-sm text-muted-foreground">Good to see you</p>
