@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 type Product = {
   id: string
