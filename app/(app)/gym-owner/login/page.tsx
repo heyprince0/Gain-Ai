@@ -1,7 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { FormEvent, useState } from 'react'
 import { Building2, Loader2, ArrowLeft, Chrome } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -11,13 +10,11 @@ import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 
 export default function GymOwnerLogin() {
-  const router = useRouter()
   const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true) // ← loading state
 
   const redirectUrl =
     typeof window !== 'undefined'
@@ -42,42 +39,6 @@ export default function GymOwnerLogin() {
         window.location.replace(destination)
       })
   }
-
-  useEffect(() => {
-    let active = true
-
-    const checkSession = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        console.error('[v0] Session error:', sessionError)
-        if (active) setLoading(false)
-        return
-      }
-      if (active && session) {
-        console.log('[v0] Existing session found, redirecting...')
-        redirectToOwnerDestination(session.user.id)
-        // No need to set loading false because we're redirecting
-        return
-      }
-      if (active) setLoading(false)
-    }
-
-    checkSession()
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active && session) {
-        console.log('[v0] Auth state changed, redirecting...')
-        redirectToOwnerDestination(session.user.id)
-      } else if (active) {
-        setLoading(false)
-      }
-    })
-
-    return () => {
-      active = false
-      listener.subscription.unsubscribe()
-    }
-  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -133,15 +94,6 @@ export default function GymOwnerLogin() {
       setError(error.message)
       setBusy(false)
     }
-  }
-
-  // ⭐ If still loading, show a spinner
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
   }
 
   return (

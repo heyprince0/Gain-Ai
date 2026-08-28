@@ -10,36 +10,40 @@ export async function middleware(request: NextRequest) {
 
   // 👑 Panel (gym owner dashboard)
   if (host.startsWith('panel.gainai.space')) {
-    // Create Supabase server client to read session cookie
+    // Create a response up front so refreshed auth cookies can be forwarded.
+    let response = NextResponse.next({ request })
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get: (name) => request.cookies.get(name)?.value,
+          getAll: () => request.cookies.getAll(),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+            response = NextResponse.next({ request })
+            cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          },
         },
       }
     )
     const { data: { session } } = await supabase.auth.getSession()
 
-    // If already signed in and trying to access login → dashboard
+    // Redirect decisions stay server-side so the login page can render immediately.
     if (pathname === '/gym-owner/login' && session) {
       url.pathname = '/gym-owner/dashboard'
       return NextResponse.redirect(url)
     }
 
-    // If not signed in and trying to access protected routes → login
     if (pathname.startsWith('/gym-owner') && pathname !== '/gym-owner/login' && !session) {
       url.pathname = '/gym-owner/login'
       return NextResponse.redirect(url)
     }
 
-    // For any other panel path, proceed normally
     if (!pathname.startsWith('/gym-owner')) {
       url.pathname = '/gym-owner/dashboard'
       return NextResponse.redirect(url)
     }
-    return NextResponse.next()
+    return response
   }
 
   // 📱 Main app (PWA)
