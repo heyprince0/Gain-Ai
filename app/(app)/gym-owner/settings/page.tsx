@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { getOwnerData, type Gym, type Plan } from '@/lib/gym-owner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 import { GymAttendanceQr } from '@/components/gym-attendance-qr'
 import { GymInstallQr } from '@/components/gym-install-qr'
 import { AppearanceCard } from '@/components/appearance-card'
@@ -28,7 +28,6 @@ export default function SettingsPage() {
   const [planToDelete, setPlanToDelete] = useState<Plan | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Brand editing state
   const [gymName, setGymName] = useState('')
   const [savingBrand, setSavingBrand] = useState(false)
   const [brandSuccess, setBrandSuccess] = useState(false)
@@ -62,7 +61,6 @@ export default function SettingsPage() {
       setSavingBrand(false)
       return
     }
-    // Update local gym state
     setGym({ ...gym, gym_name: gymName.trim() })
     setBrandSuccess(true)
     setSavingBrand(false)
