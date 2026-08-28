@@ -9,6 +9,13 @@ import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { supabase } from "@/lib/supabase"
+
+interface GymBranding {
+  gym_name: string
+  logo_url: string | null
+  primary_color: string | null
+}
 
 export function Navbar() {
   const pathname = usePathname()
@@ -16,6 +23,7 @@ export function Navbar() {
   const { user, signOut } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [gymBranding, setGymBranding] = useState<GymBranding | null>(null)
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -37,30 +45,65 @@ export function Navbar() {
     setMounted(true)
   }, [])
 
+  useEffect(() => {
+    if (!user) { setGymBranding(null); return }
+    supabase
+      .from("profiles")
+      .select("gym_id")
+      .eq("id", user.id)
+      .single()
+      .then(({ data: profile }) => {
+        if (!profile?.gym_id) return
+        supabase
+          .from("gyms")
+          .select("gym_name, logo_url, primary_color")
+          .eq("id", profile.gym_id)
+          .single()
+          .then(({ data: gym }) => {
+            if (gym) setGymBranding(gym)
+          })
+      })
+  }, [user])
+
   const handleLogout = async () => {
-    try {
-      await signOut()
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
+    try { await signOut() } catch (error) { console.error("Logout failed:", error) }
   }
 
   return (
     <header className="top-navbar sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="GainAi Logo"
-            width={40}
-            height={40}
-            className="h-10 w-10"
-          />
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            Gain<span className="text-primary">Ai</span>
-          </span>
+          {gymBranding ? (
+            <>
+              {gymBranding.logo_url ? (
+                <img
+                  src={gymBranding.logo_url}
+                  alt={gymBranding.gym_name}
+                  className="h-10 w-10 rounded-xl object-cover"
+                />
+              ) : (
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-black"
+                  style={{ backgroundColor: gymBranding.primary_color || "#00ff88" }}
+                >
+                  {gymBranding.gym_name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                {gymBranding.gym_name}
+              </span>
+            </>
+          ) : (
+            <>
+              <Image src="/logo.png" alt="GainAi Logo" width={40} height={40} className="h-10 w-10" />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                Gain<span className="text-primary">Ai</span>
+              </span>
+            </>
+          )}
         </Link>
 
+        {/* rest of navbar stays identical */}
         <div className="hidden items-center gap-1 md:flex">
           {linksToShow.map((link) => (
             <Link
@@ -80,47 +123,18 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           {mounted && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-lg"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
+            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="rounded-lg" aria-label="Toggle theme">
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           )}
           {user ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              className="rounded-lg"
-              aria-label="Logout"
-              title="Logout"
-            >
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-lg" aria-label="Logout" title="Logout">
               <LogOut className="h-4 w-4" />
             </Button>
           ) : (
-            <Link href="/">
-              <Button
-                className="rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold text-sm px-4"
-              >
-                Sign In
-              </Button>
-            </Link>
+            <Link href="/"><Button className="rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold text-sm px-4">Sign In</Button></Link>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-lg md:hidden"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
-          >
+          <Button variant="ghost" size="icon" className="rounded-lg md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
@@ -129,25 +143,16 @@ export function Navbar() {
       {mobileOpen && (
         <div className="border-t border-border/50 bg-background px-4 pb-4 pt-2 md:hidden">
           {linksToShow.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname === link.href
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
+            <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
+              className={cn("block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === link.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}>
               {link.label}
             </Link>
           ))}
           {!user && (
             <Link href="/" onClick={() => setMobileOpen(false)}>
-              <Button className="w-full mt-2 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold">
-                Sign In
-              </Button>
+              <Button className="w-full mt-2 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold">Sign In</Button>
             </Link>
           )}
         </div>
