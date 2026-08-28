@@ -10,7 +10,6 @@ import { GymAccessGate } from './gym-access-gate'
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  // ⭐ Owner routes handle their own auth – skip everything
   if (pathname?.startsWith('/gym-owner')) {
     return <>{children}</>
   }
@@ -19,7 +18,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 function MemberAuthLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, profileLoading, hasProfile } = useAuth()
+  const { user, loading, profileLoading, hasProfile, gymBranding } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const protectedRoutes = ['/dashboard', '/food-scanner', '/body-scanner']
@@ -34,10 +33,20 @@ function MemberAuthLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-full border-2 border-[#00ff88] border-t-transparent animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#0f1318]">
+        <div className="flex flex-col items-center gap-4">
+          {gymBranding?.logo_url ? (
+            <img
+              src={gymBranding.logo_url}
+              alt={gymBranding.gym_name}
+              className="h-16 w-16 rounded-2xl object-cover animate-pulse"
+            />
+          ) : (
+            <div className="h-8 w-8 rounded-full border-2 border-[#00ff88] border-t-transparent animate-spin" />
+          )}
+          {gymBranding && (
+            <p className="text-white font-semibold">{gymBranding.gym_name}</p>
+          )}
         </div>
       </div>
     )
