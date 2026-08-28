@@ -1,14 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 const RESERVED_SUBDOMAINS = new Set(['app', 'panel', 'www'])
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const url = request.nextUrl.clone()
   const pathname = url.pathname
 
   // 👑 Panel (gym owner dashboard)
   if (host.startsWith('panel.gainai.space')) {
+    // Create Supabase server client to read session cookie
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name) => request.cookies.get(name)?.value,
+        },
+      }
+    )
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // If already signed in and trying to access login → dashboard
+    if (pathname === '/gym-owner/login' && session) {
+      url.pathname = '/gym-owner/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    // If not signed in and trying to access protected routes → login
+    if (pathname.startsWith('/gym-owner') && pathname !== '/gym-owner/login' && !session) {
+      url.pathname = '/gym-owner/login'
+      return NextResponse.redirect(url)
+    }
+
+    // For any other panel path, proceed normally
     if (!pathname.startsWith('/gym-owner')) {
       url.pathname = '/gym-owner/dashboard'
       return NextResponse.redirect(url)
@@ -16,45 +42,34 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 📱 Main app (this is where the PWA lives)
+  // 📱 Main app (PWA)
   if (host.startsWith('app.gainai.space')) {
-    // If someone tries to go to gym-owner from app, send them to dashboard
     if (pathname.startsWith('/gym-owner')) {
       url.pathname = '/dashboard'
       return NextResponse.rewrite(url)
     }
-    
-    // ✅ Allow all other app routes (including /dashboard) to pass through
-    // This keeps the PWA running smoothly without redirects
     return NextResponse.next()
   }
 
-  // 🏋️ Gym subdomain redirects (like gymname.gainai.space)
+  // 🏋️ Gym subdomain redirects
   const subdomainMatch = host.match(/^([^.]+)\.gainai\.space$/)
   if (subdomainMatch && !RESERVED_SUBDOMAINS.has(subdomainMatch[1])) {
     const gymSlug = subdomainMatch[1]
-    
-    // If user visits the install page directly, keep them on the install page
     if (pathname === '/install') {
       url.host = 'app.gainai.space'
       url.pathname = `/g/${encodeURIComponent(gymSlug)}`
       return NextResponse.redirect(url)
     }
-    
-    // All other routes on gym subdomain → redirect to app.gainai.space/gym-slug
     url.host = 'app.gainai.space'
-    // Preserve the path if it's not the root
-    if (pathname !== '/') {
-      url.pathname = `/g/${encodeURIComponent(gymSlug)}${pathname}`
-    } else {
-      url.pathname = `/g/${encodeURIComponent(gymSlug)}`
-    }
+    url.pathname = pathname !== '/' 
+      ? `/g/${encodeURIComponent(gymSlug)}${pathname}`
+      : `/g/${encodeURIComponent(gymSlug)}`
     return NextResponse.redirect(url)
   }
 
   return NextResponse.next()
 }
 
-export const config = { 
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|logo.png|manifest.json).*)'] 
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|logo.png|manifest.json).*)']
 }
