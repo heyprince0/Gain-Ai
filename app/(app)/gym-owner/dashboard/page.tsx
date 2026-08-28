@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { StatusBadge } from '@/components/status-badge'
 import { getOwnerData, memberStatus, formatDate, type GymMember, type Gym, type Plan } from '@/lib/gym-owner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 export default function OwnerDashboard() {
   const [gym, setGym] = useState<Gym | null>(null)
@@ -22,16 +22,23 @@ export default function OwnerDashboard() {
   const [todayCount, setTodayCount] = useState<number | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) =>
-      data.user &&
-      getOwnerData(data.user.id).then(({ gym, members, plans }) => {
-        setGym(gym)
-        setMembers(members)
-        setPlans(plans)
-        setLoading(false)
-        if (gym) fetchTodayAttendance(gym.id)
-      })
-    )
+    const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        // If no user, redirect to login
+        window.location.href = '/gym-owner/login'
+        return
+      }
+
+      const { gym, members, plans } = await getOwnerData(user.id)
+      setGym(gym)
+      setMembers(members)
+      setPlans(plans)
+      setLoading(false)
+      if (gym) fetchTodayAttendance(gym.id)
+    }
+
+    fetchData()
   }, [])
 
   async function fetchTodayAttendance(gymId: string) {
