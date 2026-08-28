@@ -21,23 +21,10 @@ export default function GymOwnerLogin() {
       ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/gym-owner/login`
       : undefined
 
-  function redirectToOwnerDestination(userId: string) {
-    supabase
-      .from('gyms')
-      .select('id')
-      .eq('owner_id', userId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('[v0] Owner workspace lookup failed:', error)
-          setError('We could not load your gym workspace. Please try again.')
-          setBusy(false)
-          return
-        }
-        const destination = data ? '/gym-owner/dashboard' : '/gym-owner/setup'
-        console.log(`[v0] Redirecting to ${destination}`)
-        window.location.replace(destination)
-      })
+  // ✅ Always redirect to dashboard after successful login
+  function redirectToOwnerDestination() {
+    console.log('[v0] Redirecting to /gym-owner/dashboard')
+    window.location.replace('/gym-owner/dashboard')
   }
 
   async function submit(e: FormEvent) {
@@ -72,14 +59,8 @@ export default function GymOwnerLogin() {
       return
     }
 
-    const userId = result.data.user?.id || result.data.session?.user.id
-    if (!userId) {
-      setError('Unable to get user information.')
-      setBusy(false)
-      return
-    }
-
-    redirectToOwnerDestination(userId)
+    // ✅ On success, redirect immediately – no gym check
+    redirectToOwnerDestination()
   }
 
   async function signInWithGoogle() {
