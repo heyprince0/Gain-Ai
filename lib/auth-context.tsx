@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean
   profileLoading: boolean
   hasProfile: boolean
+  gymBranding: { gym_name: string; logo_url: string | null; primary_color: string | null } | null
   intendedRoute: string | null
   signUp: (email: string, password: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
@@ -26,10 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
+  const [gymBranding, setGymBranding] = useState<{ gym_name: string; logo_url: string | null; primary_color: string | null } | null>(null)
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null)
   const pathname = usePathname()
 
-  // ⭐ Check if we're on a gym‑owner route
   const isGymOwnerRoute = pathname?.startsWith('/gym-owner')
 
   useEffect(() => {
@@ -81,34 +82,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setHasProfile(false)
+    setGymBranding(null)
   }
 
   const refreshProfile = async () => {
-    // ⭐ On gym‑owner routes, we don't need a profile; treat as "hasProfile" to avoid member‑side redirects
     if (isGymOwnerRoute) {
-      setHasProfile(true)      // ← crucial: prevents member layout from thinking profile is missing
+      setHasProfile(true)
       setProfileLoading(false)
+      setGymBranding(null) // gym owners don't have member gym branding
       return
     }
 
     if (!user) {
       setHasProfile(false)
       setProfileLoading(false)
+      setGymBranding(null)
       return
     }
 
     setProfileLoading(true)
     try {
-      const { data, error } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
-        .select()
+        .select('gym_id')
         .eq('id', user.id)
         .single()
 
       if (error && error.code !== 'PGRST116') throw error
-      setHasProfile(!!data)
+      const hasProfileData = !!profile
+      setHasProfile(hasProfileData)
+
+      if (profile?.gym_id) {
+        const { data: gym } = await supabase
+          .from('gyms')
+          .select('gym_name, logo_url, primary_color')
+          .eq('id', profile.gym_id)
+          .single()
+        setGymBranding(gym ?? null)
+      } else {
+        setGymBranding(null)
+      }
     } catch {
       setHasProfile(false)
+      setGymBranding(null)
     } finally {
       setProfileLoading(false)
     }
@@ -120,7 +136,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, isGymOwnerRoute])
 
   return (
-    <AuthContext.Provider value={{ user, loading, profileLoading, hasProfile, intendedRoute, signUp, signIn, signInWithGoogle, signOut, refreshProfile, setIntendedRoute }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        profileLoading,
+        hasProfile,
+        gymBranding,
+        intendedRoute,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        signOut,
+        refreshProfile,
+        setIntendedRoute,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
