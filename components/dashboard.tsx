@@ -88,9 +88,8 @@ const formatIST = (dateString: string, timeOnly = false) => {
   })
 }
 
-// ✅ NEW: Streak calculated directly from food_scans (no reliance on daily_nutrition_log)
+// ✅ Streak calculated directly from food_scans
 function calculateStreakFromScans(scans: FoodScan[], hasScannedToday: boolean): number {
-  // Collect all scan dates (IST date string, e.g. "2026-08-28")
   const scanDates = new Set<string>()
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
@@ -105,14 +104,11 @@ function calculateStreakFromScans(scans: FoodScan[], hasScannedToday: boolean): 
     scanDates.add(dateKey)
   })
 
-  // Get today's date in IST
   const todayKey = formatter.format(new Date())
   if (hasScannedToday) scanDates.add(todayKey)
 
-  // If no scans at all, streak is 0
   if (scanDates.size === 0) return 0
 
-  // Start from today (or yesterday if today has no scan)
   let cursor = new Date(`${todayKey}T00:00:00+05:30`)
   if (!scanDates.has(todayKey)) {
     cursor.setDate(cursor.getDate() - 1)
@@ -147,6 +143,7 @@ export function Dashboard() {
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [workoutProfile, setWorkoutProfile] = useState<{ body_fat_percent?: number } | null>(null)
 
   const displayName = profile?.name ||
     user?.user_metadata?.full_name ||
@@ -375,6 +372,17 @@ export function Dashboard() {
         if (bodyError) console.error('Body scan error:', bodyError)
         if (bodyData && bodyData.length > 0) setBodyScan(bodyData[0])
 
+        // ✅ Fetch workout profile to get body_fat_percent for planner
+        const { data: workoutProfileData } = await supabase
+          .from('workout_profiles')
+          .select('body_fat_percent')
+          .eq('user_id', user.id)
+          .single()
+
+        if (workoutProfileData) {
+          setWorkoutProfile(workoutProfileData)
+        }
+
         const { data: planData, error: planError } = await supabase
           .from('workout_plans')
           .select('id')
@@ -418,10 +426,7 @@ export function Dashboard() {
     fetchData()
   }, [user])
 
-  // ✅ Compute streak using the new function that relies only on food_scans
   const streak = calculateStreakFromScans(foodScans, todayScans.length > 0)
-
-  // We still keep dailyLogs for other uses (like history), but not for streak.
 
   if (loading) {
     return (
@@ -445,22 +450,10 @@ export function Dashboard() {
   const calPercent = profile.calorie_goal
     ? Math.round((todayStats.calories / profile.calorie_goal) * 100)
     : 0
-  const proteinPercent = profile.protein_goal
-    ? Math.round((todayStats.protein / profile.protein_goal) * 100)
-    : 0
-  const carbsPercent = profile.carbs_goal
-    ? Math.round((todayStats.carbs / profile.carbs_goal) * 100)
-    : 0
-  const fatsPercent = profile.fat_goal
-    ? Math.round((todayStats.fats / profile.fat_goal) * 100)
-    : 0
-
-  const initials = (profile.name || displayName)
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('') || ''
-
   const scannedToday = todayScans.length > 0
+
+  // ✅ Body fat percent for the workout planner
+  const bodyFatPercent = bodyScan?.body_fat_percent ?? workoutProfile?.body_fat_percent ?? undefined
 
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
@@ -499,11 +492,26 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Today's Workout Card - First */}
-      <TodayWorkoutCard
-        userId={user?.id ?? ''}
-        onCreatePlan={() => setShowPlanner(true)}
-      />
+      {/* Today's Workout Card - with AI button for new users */}
+      <div className="mb-6">
+        <TodayWorkoutCard
+          userId={user?.id ?? ''}
+          onCreatePlan={() => setShowPlanner(true)}
+        />
+        
+        {/* 🔥 AI Button for new users who haven't created a workout yet */}
+        {!hasWorkoutPlan && (
+          <div className="mt-3">
+            <Button
+              onClick={() => setShowPlanner(true)}
+              className="w-full rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30 transition-all"
+            >
+              <Dumbbell className="mr-2 h-4 w-4" />
+              Create Workout Plan ✨
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Main Arc Calorie Gauge Card */}
       <Card className='rounded-2xl border-border/50 mb-6 bg-gradient-to-br from-card to-card/80'>
@@ -685,12 +693,12 @@ export function Dashboard() {
         </Card>
       )}
 
-      {showPlanner && (
-        <div className="fixed inset-0 z-[10000] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-4">
-          <div className="w-full max-w-lg sm:rounded-2xl rounded-none sm:max-h-[90vh] max-h-screen overflow-y-auto bg-background border border-border">
+      {showPlanner && user && (
+        <div className='fixed inset-0 z-[10000] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-4'>
+          <div className='w-full max-w-lg sm:rounded-2xl rounded-none sm:max-h-[90vh] max-h-screen overflow-y-auto bg-background border border-border'>
             <WorkoutPlannerForm
-              userId={user?.id ?? ''}
-              existingBodyFat={bodyScan?.body_fat_percent}
+              userId={user.id}
+              existingBodyFat={bodyFatPercent}
               onComplete={() => {
                 setShowPlanner(false)
                 window.location.reload()
