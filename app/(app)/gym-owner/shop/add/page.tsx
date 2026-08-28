@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 export default function AddProductPage() {
   const router = useRouter()
@@ -72,7 +72,6 @@ export default function AddProductPage() {
         }
       }
 
-      // Upload image
       let imageUrl: string | null = null
       if (imageFile) {
         const ext = imageFile.name.split('.').pop()
