@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -59,7 +59,7 @@ export default function EditProductPage() {
           discount_label: data.discount_label || '',
         })
         setExistingImageUrl(data.image_url)
-        setImagePreview(data.image_url) // show existing image as preview
+        setImagePreview(data.image_url)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load product')
       } finally {
@@ -103,7 +103,6 @@ export default function EditProductPage() {
 
       let imageUrl = existingImageUrl
       if (imageFile) {
-        // Upload new image
         const { data: userData } = await supabase.auth.getUser()
         if (!userData.user) throw new Error('Not authenticated')
 
