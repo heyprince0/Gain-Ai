@@ -15,7 +15,6 @@ import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
 import { QrScannerDialog } from '@/components/qr-scanner-dialog'
-import { useGymBranding } from '@/lib/use-gym-branding'
 import { AccessRevokedModal } from '@/components/access-revoked-modal'
 
 interface Profile {
@@ -89,6 +88,46 @@ const formatIST = (dateString: string, timeOnly = false) => {
   })
 }
 
+// ✅ NEW: Streak calculated directly from food_scans (no reliance on daily_nutrition_log)
+function calculateStreakFromScans(scans: FoodScan[], hasScannedToday: boolean): number {
+  // Collect all scan dates (IST date string, e.g. "2026-08-28")
+  const scanDates = new Set<string>()
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+
+  scans.forEach(scan => {
+    const date = new Date(scan.scanned_at)
+    const dateKey = formatter.format(date)
+    scanDates.add(dateKey)
+  })
+
+  // Get today's date in IST
+  const todayKey = formatter.format(new Date())
+  if (hasScannedToday) scanDates.add(todayKey)
+
+  // If no scans at all, streak is 0
+  if (scanDates.size === 0) return 0
+
+  // Start from today (or yesterday if today has no scan)
+  let cursor = new Date(`${todayKey}T00:00:00+05:30`)
+  if (!scanDates.has(todayKey)) {
+    cursor.setDate(cursor.getDate() - 1)
+  }
+
+  let streak = 0
+  while (true) {
+    const key = formatter.format(cursor)
+    if (!scanDates.has(key)) break
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 export function Dashboard() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -104,7 +143,6 @@ export function Dashboard() {
   const [showLogMeal, setShowLogMeal] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [accessRevoked, setAccessRevoked] = useState(false)
-  const branding = useGymBranding(profile?.gym_id)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -245,7 +283,6 @@ export function Dashboard() {
       if (!user) return
 
       try {
-        // ✅ FIX: use maybeSingle() instead of single() to avoid 406 error
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
@@ -381,6 +418,11 @@ export function Dashboard() {
     fetchData()
   }, [user])
 
+  // ✅ Compute streak using the new function that relies only on food_scans
+  const streak = calculateStreakFromScans(foodScans, todayScans.length > 0)
+
+  // We still keep dailyLogs for other uses (like history), but not for streak.
+
   if (loading) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
@@ -390,13 +432,11 @@ export function Dashboard() {
   }
 
   if (!profile) {
-    // ✅ Show a message to complete profile instead of crashing
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>
           <h2 className='text-xl font-semibold text-foreground mb-2'>Complete your profile</h2>
           <p className='text-muted-foreground'>Please set up your profile to start tracking your fitness journey.</p>
-          {/* You can add a "Go to Profile" button here if you have a profile page */}
         </div>
       </div>
     )
@@ -420,64 +460,18 @@ export function Dashboard() {
     .map((n: string) => n[0])
     .join('') || ''
 
-  const calculateStreak = (logs: DailyLog[], hasScannedToday: boolean) => {
-    const todayKey = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date())
-
-    const days = new Set(logs.filter((l) => l.scan_count > 0).map((l) => l.log_date))
-    if (hasScannedToday) days.add(todayKey)
-
-    if (days.size === 0) return 0
-
-    let cursor = new Date(`${todayKey}T00:00:00+05:30`)
-    if (!days.has(todayKey)) {
-      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
-    }
-
-    let streak = 0
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-
-    while (true) {
-      const key = formatter.format(cursor)
-      if (!days.has(key)) break
-      streak += 1
-      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
-    }
-    return streak
-  }
-
-  const streak = calculateStreak(dailyLogs, todayScans.length > 0)
   const scannedToday = todayScans.length > 0
 
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
-      {/* Header */}
+      {/* Header – No gym branding */}
       <div className='mb-8 flex items-start justify-between gap-3'>
         <div>
-          <div className="flex items-center gap-2">
-            {branding?.logo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={branding.logo_url}
-                alt={branding.gym_name}
-                className="size-8 rounded-lg object-cover"
-              />
-            )}
-            <h1 className='text-3xl font-bold tracking-tight text-foreground'>
-              Welcome, {displayName}
-            </h1>
-          </div>
+          <h1 className='text-3xl font-bold tracking-tight text-foreground'>
+            Welcome, {displayName}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {branding?.gym_name ? `${branding.gym_name} · Today's fitness overview` : "Today's fitness overview"}
+            Today's fitness overview
           </p>
         </div>
         <button
