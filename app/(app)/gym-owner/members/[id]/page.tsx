@@ -18,7 +18,7 @@ import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { AttendanceCalendar } from '@/components/attendance-calendar'
 import { StatusBadge } from '@/components/status-badge'
 import { formatDate, memberStatus, type GymMember } from '@/lib/gym-owner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 export default function MemberDetail() {
   const { id } = useParams<{ id: string }>()
