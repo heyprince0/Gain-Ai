@@ -10,7 +10,6 @@ export async function middleware(request: NextRequest) {
 
   // 👑 Panel (gym owner dashboard)
   if (host.startsWith('panel.gainai.space')) {
-    // Create a response up front so refreshed auth cookies can be forwarded.
     let response = NextResponse.next({ request })
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,16 +18,17 @@ export async function middleware(request: NextRequest) {
         cookies: {
           getAll: () => request.cookies.getAll(),
           setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-            response = NextResponse.next({ request })
-            cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+            // ✅ Only set on response, no request manipulation
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options)
+            })
           },
         },
       }
     )
     const { data: { session } } = await supabase.auth.getSession()
 
-    // Redirect decisions stay server-side so the login page can render immediately.
+    // Redirect decisions stay server-side
     if (pathname === '/gym-owner/login' && session) {
       url.pathname = '/gym-owner/dashboard'
       return NextResponse.redirect(url)
@@ -75,5 +75,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|logo.png|manifest.json).*)']
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|logo.png|manifest.json|sw.js|workbox-*.js).*)'
+  ]
 }
