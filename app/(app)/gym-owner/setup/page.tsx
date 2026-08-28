@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 export default function GymSetup() {
   const router = useRouter()
@@ -39,7 +39,6 @@ export default function GymSetup() {
         return
       }
 
-      // Insert using the correct column names from your gyms table
       const { error: insertError } = await supabase.from('gyms').insert({
         gym_name: form.gym_name,
         owner_name: form.owner_name,
