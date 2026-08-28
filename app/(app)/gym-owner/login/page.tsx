@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Building2, Loader2, ArrowLeft, Chrome } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ export default function GymOwnerLogin() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true) // ← loading state
 
   const redirectUrl =
     typeof window !== 'undefined'
@@ -39,6 +40,21 @@ export default function GymOwnerLogin() {
         window.location.replace(destination)
       })
   }
+
+  // ✅ Check existing session and redirect immediately
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return
+      if (session) {
+        console.log('[v0] Active session found on login page, redirecting...')
+        redirectToOwnerDestination(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+    return () => { mounted = false }
+  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -94,6 +110,15 @@ export default function GymOwnerLogin() {
       setError(error.message)
       setBusy(false)
     }
+  }
+
+  // Show spinner while checking session
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
