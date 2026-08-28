@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { GymOwnerShell } from '@/components/gym-owner-shell'
 import { addDays, getOwnerData, type Gym, type Plan } from '@/lib/gym-owner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 export default function NewMember() {
   const router = useRouter()
@@ -49,7 +49,7 @@ export default function NewMember() {
       gym_id: gym.id,
       plan_id: planId || null,
       end_date: end,
-      app_access: true, // members get app access enabled by default
+      app_access: true,
     })
 
     if (!error) router.replace('/gym-owner/dashboard')
