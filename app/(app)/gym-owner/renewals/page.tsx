@@ -21,7 +21,7 @@ import {
   addDays, daysUntilEnd, formatDate, getOwnerData,
   type Gym, type GymMember, type Plan,
 } from '@/lib/gym-owner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser' // ← CHANGED
 
 function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
@@ -59,8 +59,8 @@ export default function RenewalsPage() {
       else if (days === 0) today.push(m)
       else if (days <= 7) thisWeek.push(m)
     }
-    expired.sort((a, b) => daysUntilEnd(a.end_date) - daysUntilEnd(b.end_date)) // most overdue first
-    thisWeek.sort((a, b) => daysUntilEnd(a.end_date) - daysUntilEnd(b.end_date)) // soonest first
+    expired.sort((a, b) => daysUntilEnd(a.end_date) - daysUntilEnd(b.end_date))
+    thisWeek.sort((a, b) => daysUntilEnd(a.end_date) - daysUntilEnd(b.end_date))
     return { expired, today, thisWeek }
   }, [members])
 
@@ -275,8 +275,8 @@ function RenewDialog({
   onRenewed: () => void
 }) {
   const defaultStart = daysUntilEnd(member.end_date) < 0
-    ? new Date().toISOString().slice(0, 10) // lapsed — restart from today
-    : addDays(member.end_date, 1) // still active — continue seamlessly
+    ? new Date().toISOString().slice(0, 10)
+    : addDays(member.end_date, 1)
 
   const [planId, setPlanId] = useState(member.plan_id ?? '')
   const [startDate, setStartDate] = useState(defaultStart)
