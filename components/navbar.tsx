@@ -9,21 +9,13 @@ import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { supabase } from "@/lib/supabase"
-
-interface GymBranding {
-  gym_name: string
-  logo_url: string | null
-  primary_color: string | null
-}
 
 export function Navbar() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const { user, signOut } = useAuth()
+  const { user, signOut, gymBranding } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [gymBranding, setGymBranding] = useState<GymBranding | null>(null)
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -44,26 +36,6 @@ export function Navbar() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  useEffect(() => {
-    if (!user) { setGymBranding(null); return }
-    supabase
-      .from("profiles")
-      .select("gym_id")
-      .eq("id", user.id)
-      .single()
-      .then(({ data: profile }) => {
-        if (!profile?.gym_id) return
-        supabase
-          .from("gyms")
-          .select("gym_name, logo_url, primary_color")
-          .eq("id", profile.gym_id)
-          .single()
-          .then(({ data: gym }) => {
-            if (gym) setGymBranding(gym)
-          })
-      })
-  }, [user])
 
   const handleLogout = async () => {
     try { await signOut() } catch (error) { console.error("Logout failed:", error) }
@@ -103,7 +75,6 @@ export function Navbar() {
           )}
         </Link>
 
-        {/* rest of navbar stays identical */}
         <div className="hidden items-center gap-1 md:flex">
           {linksToShow.map((link) => (
             <Link
