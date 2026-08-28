@@ -17,14 +17,13 @@ export default function GymOwnerLogin() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true) // ← loading state
 
-  // ⭐ Use absolute URL for Supabase redirects
   const redirectUrl =
     typeof window !== 'undefined'
       ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/gym-owner/login`
       : undefined
 
-  // ⭐ Full‑page redirect to gym setup or dashboard
   function redirectToOwnerDestination(userId: string) {
     supabase
       .from('gyms')
@@ -44,7 +43,6 @@ export default function GymOwnerLogin() {
       })
   }
 
-  // ⭐ Check existing session on mount and after auth changes
   useEffect(() => {
     let active = true
 
@@ -52,12 +50,16 @@ export default function GymOwnerLogin() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) {
         console.error('[v0] Session error:', sessionError)
+        if (active) setLoading(false)
         return
       }
       if (active && session) {
         console.log('[v0] Existing session found, redirecting...')
         redirectToOwnerDestination(session.user.id)
+        // No need to set loading false because we're redirecting
+        return
       }
+      if (active) setLoading(false)
     }
 
     checkSession()
@@ -66,6 +68,8 @@ export default function GymOwnerLogin() {
       if (active && session) {
         console.log('[v0] Auth state changed, redirecting...')
         redirectToOwnerDestination(session.user.id)
+      } else if (active) {
+        setLoading(false)
       }
     })
 
@@ -115,7 +119,6 @@ export default function GymOwnerLogin() {
     }
 
     redirectToOwnerDestination(userId)
-    // no need to set busy false – the page will reload
   }
 
   async function signInWithGoogle() {
@@ -130,6 +133,15 @@ export default function GymOwnerLogin() {
       setError(error.message)
       setBusy(false)
     }
+  }
+
+  // ⭐ If still loading, show a spinner
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
