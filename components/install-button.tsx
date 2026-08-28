@@ -116,7 +116,8 @@ export function InstallButton({ gymName, slug, accentColor }: InstallButtonProps
         onClick={install}
         disabled={installing}
         className="min-w-48 rounded-full px-7 py-6 text-sm font-semibold text-background shadow-lg transition-transform hover:-translate-y-0.5"
-        style={{ backgroundColor: accentColor }}
+        // 🔽 Only change here
+        style={{ backgroundColor: '#000000', color: '#ffffff' }}
         aria-label={`Install ${gymName} app`}
       >
         <Download data-icon="inline-start" />
