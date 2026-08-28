@@ -1,11 +1,12 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Save, Building, Palette, QrCode, Smartphone, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -27,14 +28,17 @@ export default function SettingsPage() {
   const [planToDelete, setPlanToDelete] = useState<Plan | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Brand editing state
+  const [gymName, setGymName] = useState('')
+  const [savingBrand, setSavingBrand] = useState(false)
+  const [brandSuccess, setBrandSuccess] = useState(false)
+
   const load = () =>
     supabase.auth.getUser().then(({ data }) =>
       data.user &&
       getOwnerData(data.user.id).then(({ gym, plans }) => {
         setGym(gym)
-        // Only show plans still offered to new members — soft-deleted
-        // ones stay in the database (so members already on them keep
-        // their plan name/price) but drop out of this list.
+        if (gym) setGymName(gym.gym_name)
         setPlans(plans.filter((p) => p.is_active !== false))
       })
     )
@@ -43,7 +47,29 @@ export default function SettingsPage() {
     void load()
   }, [])
 
-  async function add(e: FormEvent) {
+  async function updateBrand(e: FormEvent) {
+    e.preventDefault()
+    if (!gym || !gymName.trim()) return
+    setSavingBrand(true)
+    setBrandSuccess(false)
+    const { error: updateError } = await supabase
+      .from('gyms')
+      .update({ gym_name: gymName.trim() })
+      .eq('id', gym.id)
+
+    if (updateError) {
+      setError(updateError.message)
+      setSavingBrand(false)
+      return
+    }
+    // Update local gym state
+    setGym({ ...gym, gym_name: gymName.trim() })
+    setBrandSuccess(true)
+    setSavingBrand(false)
+    setTimeout(() => setBrandSuccess(false), 3000)
+  }
+
+  async function addPlan(e: FormEvent) {
     e.preventDefault()
     if (!gym) {
       setError('Your gym workspace is still loading. Please try again.')
@@ -84,10 +110,6 @@ export default function SettingsPage() {
     setDeleting(true)
     setError('')
 
-    // Soft delete: hide it from new members instead of removing the row.
-    // A hard delete here would either be blocked by the plan_id foreign
-    // key on any member who has this plan, or silently break their
-    // plan name/price display if it wasn't blocked.
     const { error: updateError } = await supabase
       .from('gym_subscription_plans')
       .update({ is_active: false })
@@ -107,7 +129,53 @@ export default function SettingsPage() {
 
   return (
     <GymOwnerShell title="Settings">
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
+      <div className="space-y-8">
+        {/* ====== BRAND SECTION ====== */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="size-5 text-primary" />
+              Gym Brand
+            </CardTitle>
+            <CardDescription>
+              Update your gym’s name — this appears in the app header and install pages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={updateBrand} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="gymName">Gym name</Label>
+                <Input
+                  id="gymName"
+                  value={gymName}
+                  onChange={(e) => setGymName(e.target.value)}
+                  placeholder="Your gym name"
+                  className="max-w-md"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={savingBrand || !gymName.trim() || gymName === gym?.gym_name}
+                className="shrink-0"
+              >
+                {savingBrand ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 size-4" />
+                )}
+                {savingBrand ? 'Saving...' : 'Save brand'}
+              </Button>
+            </form>
+            {brandSuccess && (
+              <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+                ✅ Brand name updated successfully!
+              </p>
+            )}
+            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          </CardContent>
+        </Card>
+
+        {/* ====== SUBSCRIPTION PLANS ====== */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -129,7 +197,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => setPlanToDelete(p)}>
-                    <Trash2 />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               ))}
@@ -142,7 +210,7 @@ export default function SettingsPage() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <form onSubmit={add} className="grid gap-3 border-t pt-5 md:grid-cols-3">
+            <form onSubmit={addPlan} className="grid gap-3 border-t pt-5 md:grid-cols-3">
               <div className="flex flex-col gap-2">
                 <Label>Plan name</Label>
                 <Input
@@ -178,41 +246,52 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance QR code</CardTitle>
-              <CardDescription>Print this and place it at your gym entrance.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {gym ? (
-                <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} />
-              ) : (
-                <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* ====== QR CODES & BRANDING ====== */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="size-5 text-primary" />
+                  Attendance QR
+                </CardTitle>
+                <CardDescription>Print and place at your gym entrance.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {gym ? (
+                  <GymAttendanceQr gymId={gym.id} gymName={gym.gym_name} />
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground">Loading...</p>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Install app QR code</CardTitle>
-              <CardDescription>New members scan this to install the GainAi app for your gym.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {gym ? (
-                <GymInstallQr slug={gym.slug} gymName={gym.gym_name} />
-              ) : (
-                <p className="text-center text-sm text-muted-foreground">Loading gym QR...</p>
-              )}
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Smartphone className="size-5 text-primary" />
+                  Install App QR
+                </CardTitle>
+                <CardDescription>New members scan to install the app for your gym.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {gym ? (
+                  <GymInstallQr slug={gym.slug} gymName={gym.gym_name} />
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground">Loading...</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-          <AppearanceCard />
-
-          {gym && <BrandingCard gymId={gym.id} />}
+          <div className="space-y-6">
+            <AppearanceCard />
+            {gym && <BrandingCard gymId={gym.id} />}
+          </div>
         </div>
       </div>
 
+      {/* Delete plan confirmation dialog */}
       <AlertDialog open={!!planToDelete} onOpenChange={(open) => !open && setPlanToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
