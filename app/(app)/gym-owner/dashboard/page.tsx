@@ -42,9 +42,6 @@ export default function OwnerDashboard() {
       day: '2-digit',
     }).format(new Date())
 
-    // Fetching actual rows and taking the length instead of a head-count
-    // query — head-count + filters was returning the gym's total attendance
-    // instead of just today's, so this is the reliable version.
     const { data } = await supabase
       .from('gym_attendance')
       .select('id')
