@@ -10,15 +10,14 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { NotificationBell } from "@/components/notification-bell"
-import { supabaseBrowser } from "@/lib/supabase-browser"
 
 export function Navbar() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const { user, signOut, gymBranding } = useAuth()
+  // ✅ FIX 4: gymId now comes directly from auth-context — no duplicate fetch needed
+  const { user, signOut, gymBranding, gymId } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [userGymId, setUserGymId] = useState<string | null>(null)
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -40,64 +39,9 @@ export function Navbar() {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    if (!user) {
-      setUserGymId(null)
-      return
-    }
-
-    const fetchGymId = async () => {
-      try {
-        // 1. Try profiles.gym_id first (fastest, works after first login)
-        const { data: profile } = await supabaseBrowser
-          .from('profiles')
-          .select('gym_id')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.gym_id) {
-          setUserGymId(profile.gym_id)
-          return // ✅ Found it, done
-        }
-
-        // 2. Fallback: look up via gym_members.linked_profile_id
-        const { data: member } = await supabaseBrowser
-          .from('gym_members')
-          .select('gym_id')
-          .eq('linked_profile_id', user.id)
-          .is('deleted_at', null)
-          .maybeSingle()
-
-        if (member?.gym_id) {
-          setUserGymId(member.gym_id)
-
-          // ✅ FIX 3: Write gym_id back to profiles so next load is instant
-          // This is a one-time sync — no more double fetch after first login
-          await supabaseBrowser
-            .from('profiles')
-            .update({ gym_id: member.gym_id })
-            .eq('id', user.id)
-
-          return
-        }
-
-        // 3. Not a member of any gym (solo user)
-        setUserGymId(null)
-      } catch (err) {
-        console.error('Error fetching gym_id:', err)
-        setUserGymId(null)
-      }
-    }
-
-    fetchGymId()
-  }, [user])
-
   const handleLogout = async () => {
     try { await signOut() } catch (error) { console.error("Logout failed:", error) }
   }
-
-  // gymBranding.id covers gym owners; userGymId covers members
-  const gymId = userGymId || gymBranding?.id || null
 
   return (
     <header className="top-navbar sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -163,7 +107,7 @@ export function Navbar() {
             </Button>
           )}
 
-          {/* Bell shows for both members (userGymId) and owners (gymBranding.id) */}
+          {/* Bell shows for members (gymId from gym_members) and owners (gymId from profile) */}
           {user && gymId && (
             <NotificationBell gymId={gymId} />
           )}
