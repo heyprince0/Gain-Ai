@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { NotificationBell } from "@/components/notification-bell" // ✅ Import the bell
 
 export function Navbar() {
   const pathname = usePathname()
@@ -98,6 +99,12 @@ export function Navbar() {
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           )}
+
+          {/* 🔔 Notification Bell – only shown when user is logged in */}
+          {user && gymBranding?.id && (
+            <NotificationBell gymId={gymBranding.id} />
+          )}
+
           {user ? (
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-lg" aria-label="Logout" title="Logout">
               <LogOut className="h-4 w-4" />
