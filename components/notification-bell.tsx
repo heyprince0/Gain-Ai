@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser } from '@/lib/supabase-browser'
 import { NotificationPermission } from './notification-permission'
 
 type Notification = { 
