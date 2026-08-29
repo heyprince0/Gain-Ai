@@ -1,23 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Bell } from 'lucide-react'
 import { supabaseBrowser } from '@/lib/supabase-browser'
 import { NotificationPermission } from './notification-permission'
 
-type Notification = { 
-  id: string; 
-  title: string; 
-  body: string; 
-  url?: string; 
-  is_read: boolean; 
-  sent_at: string 
+type Notification = {
+  id: string
+  title: string
+  body: string
+  url?: string
+  is_read: boolean
+  sent_at: string
 }
 
 export function NotificationBell({ gymId }: { gymId: string }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
   const [permission, setPermission] = useState<'default' | 'granted' | 'denied'>('default')
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Sync with actual browser permission state
   useEffect(() => {
@@ -26,8 +27,28 @@ export function NotificationBell({ gymId }: { gymId: string }) {
     }
   }, [])
 
+  // ✅ FIX 2: Load notifications on mount (not just on dropdown open)
+  // so the unread badge shows immediately on page load
+  useEffect(() => {
+    if (permission === 'granted') {
+      loadNotifications()
+    }
+  }, [permission])
+
+  // ✅ Close dropdown on outside click
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [open])
+
   async function loadNotifications() {
-    const { data: { session } } = await supabase.auth.getSession()
+    // ✅ FIX 1: was `supabase` (undefined) — now correctly `supabaseBrowser`
+    const { data: { session } } = await supabaseBrowser.auth.getSession()
     if (!session) return
     try {
       const response = await fetch('/api/notifications', {
@@ -39,7 +60,7 @@ export function NotificationBell({ gymId }: { gymId: string }) {
     }
   }
 
-  // Load notifications only when dropdown opens AND permission is granted
+  // Reload when dropdown opens (to get fresh data)
   useEffect(() => {
     if (open && permission === 'granted') {
       loadNotifications()
@@ -47,7 +68,8 @@ export function NotificationBell({ gymId }: { gymId: string }) {
   }, [open, permission])
 
   async function markRead(id: string) {
-    const { data: { session } } = await supabase.auth.getSession()
+    // ✅ FIX 1: was `supabase` (undefined) — now correctly `supabaseBrowser`
+    const { data: { session } } = await supabaseBrowser.auth.getSession()
     if (!session) return
     await fetch('/api/notifications/mark-read', {
       method: 'PATCH',
@@ -67,7 +89,7 @@ export function NotificationBell({ gymId }: { gymId: string }) {
   const unread = items.filter((item) => !item.is_read).length
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
@@ -86,19 +108,17 @@ export function NotificationBell({ gymId }: { gymId: string }) {
         <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border border-border bg-card p-2 shadow-xl">
           <h3 className="px-3 py-2 font-semibold">Notifications</h3>
 
-          {/* 🔔 IF PERMISSION NOT GRANTED -> SHOW ENABLE PROMPT */}
           {permission !== 'granted' ? (
             <div className="px-3 py-2">
-              <NotificationPermission 
-                gymId={gymId} 
+              <NotificationPermission
+                gymId={gymId}
                 onSuccess={() => {
-                  setPermission('granted') // Update local state
-                  loadNotifications()      // Immediately load notifications
-                }} 
+                  setPermission('granted')
+                  loadNotifications()
+                }}
               />
             </div>
           ) : (
-            /* ✅ IF PERMISSION GRANTED -> SHOW NOTIFICATION LIST */
             <>
               {items.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -118,13 +138,11 @@ export function NotificationBell({ gymId }: { gymId: string }) {
                     }`}
                   >
                     <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {item.body}
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.body}</p>
                     {!item.is_read && (
                       <span
-                        onClick={(event) => {
-                          event.stopPropagation()
+                        onClick={(e) => {
+                          e.stopPropagation()
                           markRead(item.id)
                         }}
                         className="mt-2 inline-block text-xs text-primary"
