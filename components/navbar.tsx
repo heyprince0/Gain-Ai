@@ -40,7 +40,6 @@ export function Navbar() {
     setMounted(true)
   }, [])
 
-  // Fetch gym_id with fallback to gym_members
   useEffect(() => {
     if (!user) {
       setUserGymId(null)
@@ -49,35 +48,41 @@ export function Navbar() {
 
     const fetchGymId = async () => {
       try {
-        // 1. Try profiles.gym_id first
-        const { data: profile, error: profileError } = await supabaseBrowser
+        // 1. Try profiles.gym_id first (fastest, works after first login)
+        const { data: profile } = await supabaseBrowser
           .from('profiles')
           .select('gym_id')
           .eq('id', user.id)
           .single()
 
-        if (profileError) {
-          console.warn('Profile fetch error:', profileError)
+        if (profile?.gym_id) {
+          setUserGymId(profile.gym_id)
+          return // ✅ Found it, done
         }
 
-        let gymId = profile?.gym_id || null
+        // 2. Fallback: look up via gym_members.linked_profile_id
+        const { data: member } = await supabaseBrowser
+          .from('gym_members')
+          .select('gym_id')
+          .eq('linked_profile_id', user.id)
+          .is('deleted_at', null)
+          .maybeSingle()
 
-        // 2. If still null, try gym_members via linked_profile_id
-        if (!gymId) {
-          const { data: member, error: memberError } = await supabaseBrowser
-            .from('gym_members')
-            .select('gym_id')
-            .eq('linked_profile_id', user.id)
-            .is('deleted_at', null)
-            .maybeSingle()
+        if (member?.gym_id) {
+          setUserGymId(member.gym_id)
 
-          if (memberError) {
-            console.warn('Member fetch error:', memberError)
-          }
-          gymId = member?.gym_id || null
+          // ✅ FIX 3: Write gym_id back to profiles so next load is instant
+          // This is a one-time sync — no more double fetch after first login
+          await supabaseBrowser
+            .from('profiles')
+            .update({ gym_id: member.gym_id })
+            .eq('id', user.id)
+
+          return
         }
 
-        setUserGymId(gymId)
+        // 3. Not a member of any gym (solo user)
+        setUserGymId(null)
       } catch (err) {
         console.error('Error fetching gym_id:', err)
         setUserGymId(null)
@@ -91,7 +96,7 @@ export function Navbar() {
     try { await signOut() } catch (error) { console.error("Logout failed:", error) }
   }
 
-  // Use the fetched ID or gymBranding (for owners)
+  // gymBranding.id covers gym owners; userGymId covers members
   const gymId = userGymId || gymBranding?.id || null
 
   return (
@@ -147,24 +152,48 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           {mounted && (
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="rounded-lg" aria-label="Toggle theme">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="rounded-lg"
+              aria-label="Toggle theme"
+            >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           )}
 
-          {/* 🔔 Bell shows if we have a gymId */}
+          {/* Bell shows for both members (userGymId) and owners (gymBranding.id) */}
           {user && gymId && (
             <NotificationBell gymId={gymId} />
           )}
 
           {user ? (
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-lg" aria-label="Logout" title="Logout">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="rounded-lg"
+              aria-label="Logout"
+              title="Logout"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           ) : (
-            <Link href="/"><Button className="rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold text-sm px-4">Sign In</Button></Link>
+            <Link href="/">
+              <Button className="rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold text-sm px-4">
+                Sign In
+              </Button>
+            </Link>
           )}
-          <Button variant="ghost" size="icon" className="rounded-lg md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-lg md:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
@@ -173,16 +202,25 @@ export function Navbar() {
       {mobileOpen && (
         <div className="border-t border-border/50 bg-background px-4 pb-4 pt-2 md:hidden">
           {linksToShow.map((link) => (
-            <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
-              className={cn("block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname === link.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === link.href
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
               {link.label}
             </Link>
           ))}
           {!user && (
             <Link href="/" onClick={() => setMobileOpen(false)}>
-              <Button className="w-full mt-2 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold">Sign In</Button>
+              <Button className="w-full mt-2 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold">
+                Sign In
+              </Button>
             </Link>
           )}
         </div>
