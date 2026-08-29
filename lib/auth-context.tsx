@@ -1,7 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { supabase } from './supabase'
+// ✅ FIX 1: was importing from './supabase' (a second client) — now uses the singleton
+import { supabaseBrowser } from './supabase-browser'
 import type { User } from '@supabase/supabase-js'
 import { usePathname } from 'next/navigation'
 
@@ -10,7 +11,7 @@ interface AuthContextType {
   loading: boolean
   profileLoading: boolean
   hasProfile: boolean
-  gymId: string | null // ✅ ADD THIS NEW FIELD
+  gymId: string | null
   gymBranding: { gym_name: string; logo_url: string | null; primary_color: string | null } | null
   intendedRoute: string | null
   signUp: (email: string, password: string) => Promise<void>
@@ -28,8 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
-  const [gymId, setGymId] = useState<string | null>(null) // ✅ ADD THIS NEW STATE
-  const [gymBranding, setGymBranding] = useState<{ gym_name: string; logo_url: string | null; primary_color: string | null } | null>(null)
+  const [gymId, setGymId] = useState<string | null>(null)
+  const [gymBranding, setGymBranding] = useState<{
+    gym_name: string
+    logo_url: string | null
+    primary_color: string | null
+  } | null>(null)
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null)
   const pathname = usePathname()
 
@@ -38,14 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
       if (mounted) {
         setUser(session?.user ?? null)
         setLoading(false)
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange(
       (_event, session) => {
         if (mounted) {
           setUser(session?.user ?? null)
@@ -61,17 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { error } = await supabaseBrowser.auth.signUp({ email, password })
     if (error) throw error
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
@@ -81,10 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await supabaseBrowser.auth.signOut()
     if (error) throw error
     setHasProfile(false)
-    setGymId(null) // ✅ CLEAR THE GYM ID
+    setGymId(null)
     setGymBranding(null)
   }
 
@@ -92,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isGymOwnerRoute) {
       setHasProfile(true)
       setProfileLoading(false)
-      setGymId(null) // Gym owners don't have a member gym ID
+      setGymId(null)
       setGymBranding(null)
       return
     }
@@ -107,31 +112,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfileLoading(true)
     try {
-      const { data: profile, error } = await supabase
+      // ✅ FIX 2: was .single() → 406 crash when no profile row exists
+      const { data: profile } = await supabaseBrowser
         .from('profiles')
         .select('gym_id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code !== 'PGRST116') throw error
-      const hasProfileData = !!profile
-      setHasProfile(hasProfileData)
+      setHasProfile(!!profile)
+      let resolvedGymId = profile?.gym_id || null
 
-      // ✅ STORE THE GYM ID IN STATE
-      const userGymId = profile?.gym_id || null
-      setGymId(userGymId)
+      // ✅ FIX 3: fallback to gym_members when profiles.gym_id is null
+      // This covers members who haven't had gym_id written to their profile yet
+      if (!resolvedGymId) {
+        const { data: member } = await supabaseBrowser
+          .from('gym_members')
+          .select('gym_id')
+          .eq('linked_profile_id', user.id)
+          .is('deleted_at', null)
+          .maybeSingle()
 
-      if (userGymId) {
-        const { data: gym } = await supabase
+        resolvedGymId = member?.gym_id || null
+
+        // Write gym_id back to profiles so next load skips this fallback
+        if (resolvedGymId) {
+          await supabaseBrowser
+            .from('profiles')
+            .upsert({ id: user.id, gym_id: resolvedGymId }, { onConflict: 'id' })
+        }
+      }
+
+      setGymId(resolvedGymId)
+
+      if (resolvedGymId) {
+        const { data: gym } = await supabaseBrowser
           .from('gyms')
           .select('gym_name, logo_url, primary_color')
-          .eq('id', userGymId)
-          .single()
+          .eq('id', resolvedGymId)
+          .maybeSingle()
         setGymBranding(gym ?? null)
       } else {
         setGymBranding(null)
       }
-    } catch {
+    } catch (err) {
+      console.error('refreshProfile error:', err)
       setHasProfile(false)
       setGymId(null)
       setGymBranding(null)
@@ -152,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         profileLoading,
         hasProfile,
-        gymId, // ✅ EXPOSE THE GYM ID
+        gymId,
         gymBranding,
         intendedRoute,
         signUp,
