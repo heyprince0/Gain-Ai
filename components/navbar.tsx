@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { NotificationBell } from "@/components/notification-bell" // ✅ Import the bell
+import { NotificationBell } from "@/components/notification-bell"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -17,6 +17,9 @@ export function Navbar() {
   const { user, signOut, gymBranding } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // 🔥 CRITICAL FIX: Get the gym ID from the user's profile or gymBranding
+  const gymId = user?.gym_id || gymBranding?.id || null
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -100,10 +103,8 @@ export function Navbar() {
             </Button>
           )}
 
-          {/* 🔔 Notification Bell – only shown when user is logged in */}
-          {user && gymBranding?.id && (
-            <NotificationBell gymId={gymBranding.id} />
-          )}
+          {/* 🔔 FIXED: Shows bell if user is logged in AND we have a gymId */}
+          {user && gymId && <NotificationBell gymId={gymId} />}
 
           {user ? (
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-lg" aria-label="Logout" title="Logout">
