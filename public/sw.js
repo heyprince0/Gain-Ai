@@ -1,16 +1,30 @@
 const SW_VERSION = 'gainai-network-only-v2'
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting())
+importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js', 'https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js')
+
+// TODO: Replace with your Firebase config from .env
+firebase.initializeApp({ apiKey: '__NEXT_PUBLIC_FIREBASE_API_KEY__', authDomain: '__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__', projectId: '__NEXT_PUBLIC_FIREBASE_PROJECT_ID__', storageBucket: '__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__', messagingSenderId: '__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__', appId: '__NEXT_PUBLIC_FIREBASE_APP_ID__' })
+
+self.addEventListener('install', (event) => { event.waitUntil(self.skipWaiting()) })
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()) })
+self.addEventListener('fetch', () => {
+  // Network-only keeps tenant pages, manifests, images, and authenticated APIs fresh.
 })
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
-})
+try {
+  const messaging = firebase.messaging()
+  messaging.onBackgroundMessage((payload) => {
+    const title = payload.notification?.title || 'GainAI notification'
+    const options = { body: payload.notification?.body || '', icon: '/logo-192.png', data: { url: payload.fcmOptions?.link || payload.data?.url || '/' } }
+    self.registration.showNotification(title, options)
+  })
+} catch (error) { console.error('[sw] Firebase messaging unavailable', error) }
 
-self.addEventListener('fetch', (event) => {
-  // Deliberately do not call respondWith: every tenant page, manifest,
-  // image, and authenticated API request must stay network-fresh.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url || '/', self.location.origin)
+  if (target.origin !== self.location.origin) return
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => { const client = clients.find((item) => 'focus' in item); return client ? client.focus().then(() => client.navigate(target.href)) : self.clients.openWindow(target.href) }))
 })
 
 void SW_VERSION
