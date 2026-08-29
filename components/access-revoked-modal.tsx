@@ -2,7 +2,7 @@
 
 import { AlertTriangle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 export function AccessRevokedModal({ open }: { open: boolean }) {
   async function handleOk() {
