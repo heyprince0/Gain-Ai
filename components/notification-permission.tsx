@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Bell, CheckCircle2, Loader2 } from 'lucide-react'
 import { requestPermissionAndGetToken } from '@/lib/firebase/client'
-import { supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser } from '@/lib/supabase-browser'
 
 export function NotificationPermission({ gymId, onSuccess }: { gymId: string; onSuccess?: () => void }) {
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
