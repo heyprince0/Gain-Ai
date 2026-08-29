@@ -10,6 +10,7 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { NotificationBell } from "@/components/notification-bell"
+import { supabaseBrowser } from "@/lib/supabase-browser"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -17,9 +18,7 @@ export function Navbar() {
   const { user, signOut, gymBranding } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  // 🔥 CRITICAL FIX: Get the gym ID from the user's profile or gymBranding
-  const gymId = user?.gym_id || gymBranding?.id || null
+  const [userGymId, setUserGymId] = useState<string | null>(null)
 
   const authenticatedLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -41,9 +40,59 @@ export function Navbar() {
     setMounted(true)
   }, [])
 
+  // Fetch gym_id with fallback to gym_members
+  useEffect(() => {
+    if (!user) {
+      setUserGymId(null)
+      return
+    }
+
+    const fetchGymId = async () => {
+      try {
+        // 1. Try profiles.gym_id first
+        const { data: profile, error: profileError } = await supabaseBrowser
+          .from('profiles')
+          .select('gym_id')
+          .eq('id', user.id)
+          .single()
+
+        if (profileError) {
+          console.warn('Profile fetch error:', profileError)
+        }
+
+        let gymId = profile?.gym_id || null
+
+        // 2. If still null, try gym_members via linked_profile_id
+        if (!gymId) {
+          const { data: member, error: memberError } = await supabaseBrowser
+            .from('gym_members')
+            .select('gym_id')
+            .eq('linked_profile_id', user.id)
+            .is('deleted_at', null)
+            .maybeSingle()
+
+          if (memberError) {
+            console.warn('Member fetch error:', memberError)
+          }
+          gymId = member?.gym_id || null
+        }
+
+        setUserGymId(gymId)
+      } catch (err) {
+        console.error('Error fetching gym_id:', err)
+        setUserGymId(null)
+      }
+    }
+
+    fetchGymId()
+  }, [user])
+
   const handleLogout = async () => {
     try { await signOut() } catch (error) { console.error("Logout failed:", error) }
   }
+
+  // Use the fetched ID or gymBranding (for owners)
+  const gymId = userGymId || gymBranding?.id || null
 
   return (
     <header className="top-navbar sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -103,8 +152,10 @@ export function Navbar() {
             </Button>
           )}
 
-          {/* 🔔 FIXED: Shows bell if user is logged in AND we have a gymId */}
-          {user && gymId && <NotificationBell gymId={gymId} />}
+          {/* 🔔 Bell shows if we have a gymId */}
+          {user && gymId && (
+            <NotificationBell gymId={gymId} />
+          )}
 
           {user ? (
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-lg" aria-label="Logout" title="Logout">
