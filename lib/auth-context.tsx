@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean
   profileLoading: boolean
   hasProfile: boolean
+  gymId: string | null // ✅ ADD THIS NEW FIELD
   gymBranding: { gym_name: string; logo_url: string | null; primary_color: string | null } | null
   intendedRoute: string | null
   signUp: (email: string, password: string) => Promise<void>
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
+  const [gymId, setGymId] = useState<string | null>(null) // ✅ ADD THIS NEW STATE
   const [gymBranding, setGymBranding] = useState<{ gym_name: string; logo_url: string | null; primary_color: string | null } | null>(null)
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null)
   const pathname = usePathname()
@@ -82,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setHasProfile(false)
+    setGymId(null) // ✅ CLEAR THE GYM ID
     setGymBranding(null)
   }
 
@@ -89,13 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isGymOwnerRoute) {
       setHasProfile(true)
       setProfileLoading(false)
-      setGymBranding(null) // gym owners don't have member gym branding
+      setGymId(null) // Gym owners don't have a member gym ID
+      setGymBranding(null)
       return
     }
 
     if (!user) {
       setHasProfile(false)
       setProfileLoading(false)
+      setGymId(null)
       setGymBranding(null)
       return
     }
@@ -112,11 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hasProfileData = !!profile
       setHasProfile(hasProfileData)
 
-      if (profile?.gym_id) {
+      // ✅ STORE THE GYM ID IN STATE
+      const userGymId = profile?.gym_id || null
+      setGymId(userGymId)
+
+      if (userGymId) {
         const { data: gym } = await supabase
           .from('gyms')
           .select('gym_name, logo_url, primary_color')
-          .eq('id', profile.gym_id)
+          .eq('id', userGymId)
           .single()
         setGymBranding(gym ?? null)
       } else {
@@ -124,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       setHasProfile(false)
+      setGymId(null)
       setGymBranding(null)
     } finally {
       setProfileLoading(false)
@@ -142,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         profileLoading,
         hasProfile,
+        gymId, // ✅ EXPOSE THE GYM ID
         gymBranding,
         intendedRoute,
         signUp,
