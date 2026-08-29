@@ -3,7 +3,8 @@ const SW_VERSION = 'gainai-network-only-v2'
 importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js', 'https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js')
 
 // TODO: Replace with your Firebase config from .env
-firebase.initializeApp({ apiKey: '__NEXT_PUBLIC_FIREBASE_API_KEY__', authDomain: '__NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN__', projectId: '__NEXT_PUBLIC_FIREBASE_PROJECT_ID__', storageBucket: '__NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET__', messagingSenderId: '__NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID__', appId: '__NEXT_PUBLIC_FIREBASE_APP_ID__' })
+firebase.initializeApp({ apiKey: 'AIzaSyBv_vTmH4vkK-152mvmpYLrCuZQQ_B3GqQ', authDomain: 'gainai-message.firebaseapp.com', projectId: 'gainai-message', storageBucket: 'gainai-message.firebasestorage.app', messagingSenderId: 'ai-message.firebasestorage.app",
+  messagingSenderId: "829407715292', appId: '1:829407715292:web:bf80f1b6e118aa1ca4f919' })
 
 self.addEventListener('install', (event) => { event.waitUntil(self.skipWaiting()) })
 self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()) })
