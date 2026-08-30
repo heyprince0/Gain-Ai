@@ -27,7 +27,7 @@ export function NotificationBell({ gymId }: { gymId: string }) {
     }
   }, [])
 
-  // ✅ FIX 2: Load notifications on mount (not just on dropdown open)
+  // Load notifications on mount (not just on dropdown open)
   // so the unread badge shows immediately on page load
   useEffect(() => {
     if (permission === 'granted') {
@@ -35,7 +35,7 @@ export function NotificationBell({ gymId }: { gymId: string }) {
     }
   }, [permission])
 
-  // ✅ Close dropdown on outside click
+  // Close dropdown on outside click
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -47,7 +47,6 @@ export function NotificationBell({ gymId }: { gymId: string }) {
   }, [open])
 
   async function loadNotifications() {
-    // ✅ FIX 1: was `supabase` (undefined) — now correctly `supabaseBrowser`
     const { data: { session } } = await supabaseBrowser.auth.getSession()
     if (!session) return
     try {
@@ -68,7 +67,6 @@ export function NotificationBell({ gymId }: { gymId: string }) {
   }, [open, permission])
 
   async function markRead(id: string) {
-    // ✅ FIX 1: was `supabase` (undefined) — now correctly `supabaseBrowser`
     const { data: { session } } = await supabaseBrowser.auth.getSession()
     if (!session) return
     await fetch('/api/notifications/mark-read', {
@@ -90,23 +88,28 @@ export function NotificationBell({ gymId }: { gymId: string }) {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {/* 🔔 BELL BUTTON – bigger touch target on mobile */}
       <button
         type="button"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
         onClick={() => setOpen(!open)}
-        className="relative rounded-xl p-2 hover:bg-muted"
+        className="relative rounded-xl p-2.5 hover:bg-muted active:scale-95 transition-transform touch-manipulation"
       >
-        <Bell className="size-5" />
+        <Bell className="size-5" strokeWidth={2} />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1 text-center text-xs text-primary-foreground">
-            {unread}
+          <span className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full bg-primary px-1 text-center text-[11px] font-semibold leading-5 text-primary-foreground">
+            {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
+      {/* 📋 DROPDOWN – full-width on mobile, fixed width on desktop */}
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border border-border bg-card p-2 shadow-xl">
-          <h3 className="px-3 py-2 font-semibold">Notifications</h3>
+        <div
+          className="absolute right-0 z-50 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-h-[80vh] overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-xl"
+          style={{ maxWidth: 'min(calc(100vw - 2rem), 320px)' }}
+        >
+          <h3 className="px-3 py-2 font-semibold text-foreground">Notifications</h3>
 
           {permission !== 'granted' ? (
             <div className="px-3 py-2">
@@ -133,19 +136,19 @@ export function NotificationBell({ gymId }: { gymId: string }) {
                       markRead(item.id)
                       if (item.url) window.location.assign(item.url)
                     }}
-                    className={`w-full rounded-xl p-3 text-left hover:bg-muted ${
+                    className={`w-full rounded-xl p-3 text-left hover:bg-muted active:bg-muted/80 transition-colors ${
                       item.is_read ? 'opacity-60' : ''
                     }`}
                   >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{item.body}</p>
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.body}</p>
                     {!item.is_read && (
                       <span
                         onClick={(e) => {
                           e.stopPropagation()
                           markRead(item.id)
                         }}
-                        className="mt-2 inline-block text-xs text-primary"
+                        className="mt-2 inline-block text-xs font-medium text-primary hover:underline touch-manipulation"
                       >
                         Mark as read
                       </span>
