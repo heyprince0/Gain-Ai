@@ -1,4 +1,4 @@
-const SW_VERSION = 'gainai-network-only-v3'
+const SW_VERSION = 'gainai-network-only-v4'
 
 importScripts(
   'https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js',
@@ -28,28 +28,25 @@ self.addEventListener('fetch', () => {
 
 try {
   const messaging = firebase.messaging()
+
+  // ✅ FIX: Read from payload.data NOT payload.notification
+  // Data-only messages → onBackgroundMessage ALWAYS fires when app is closed
+  // Notification messages → browser may handle them, bypassing this handler
   messaging.onBackgroundMessage((payload) => {
-    const title = payload.notification?.title || 'Notification'
+    const title = payload.data?.title || payload.notification?.title || 'Notification'
+    const body  = payload.data?.body  || payload.notification?.body  || ''
+    const url   = payload.data?.url   || payload.fcmOptions?.link    || '/'
+    const icon  = payload.data?.gym_logo || '/logo-192.png'
+
     const options = {
-      body: payload.notification?.body || '',
-
-      // ✅ Use gym logo sent in payload data — falls back to GainAi logo
-      icon: payload.data?.gym_logo || payload.notification?.icon || '/logo-192.png',
-
-      // ✅ Badge: small monochrome icon shown in status bar on Android
+      body,
+      icon,
       badge: '/logo-96.png',
-
-      // ✅ Sound + vibration — like Instagram/WhatsApp
       vibrate: [200, 100, 200],
-      sound: 'default',
-
-      // ✅ Keep notification visible until user interacts (optional)
       requireInteraction: false,
-
-      data: {
-        url: payload.fcmOptions?.link || payload.data?.url || '/',
-      },
+      data: { url },
     }
+
     self.registration.showNotification(title, options)
   })
 } catch (error) {
