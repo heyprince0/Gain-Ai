@@ -1,4 +1,4 @@
-const SW_VERSION = 'gainai-network-only-v4'
+const SW_VERSION = 'gainai-v5'
 
 importScripts(
   'https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js',
@@ -14,56 +14,47 @@ firebase.initializeApp({
   appId: '1:829407715292:web:bf80f1b6e118aa1ca4f919',
 })
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting())
-})
+self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()))
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
+self.addEventListener('fetch', () => {})
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
-})
+const messaging = firebase.messaging()
 
-self.addEventListener('fetch', () => {
-  // Network-only
-})
-
-try {
-  const messaging = firebase.messaging()
-
-  // ✅ FIX: Read from payload.data NOT payload.notification
-  // Data-only messages → onBackgroundMessage ALWAYS fires when app is closed
-  // Notification messages → browser may handle them, bypassing this handler
-  messaging.onBackgroundMessage((payload) => {
-    const title = payload.data?.title || payload.notification?.title || 'Notification'
-    const body  = payload.data?.body  || payload.notification?.body  || ''
-    const url   = payload.data?.url   || payload.fcmOptions?.link    || '/'
+// This fires ONLY for data-only messages (no notification field)
+// For messages WITH notification field, Firebase shows them automatically
+// using webpush.notification settings (icon, badge, vibrate) — no SW needed
+messaging.onBackgroundMessage((payload) => {
+  // Only manually show notification for data-only messages
+  // (fallback — normal sends use notification + webpush.notification)
+  if (!payload.notification) {
+    const title = payload.data?.title || 'Notification'
+    const body  = payload.data?.body  || ''
     const icon  = payload.data?.gym_logo || '/logo-192.png'
+    const url   = payload.data?.url   || '/'
 
-    const options = {
+    self.registration.showNotification(title, {
       body,
       icon,
       badge: '/logo-96.png',
       vibrate: [200, 100, 200],
-      requireInteraction: false,
       data: { url },
-    }
+    })
+  }
+})
 
-    self.registration.showNotification(title, options)
-  })
-} catch (error) {
-  console.error('[sw] Firebase messaging unavailable', error)
-}
-
+// Handle notification tap → open correct URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const target = new URL(event.notification.data?.url || '/', self.location.origin)
+  const url = event.notification.data?.url || '/'
+  const target = new URL(url, self.location.origin)
   if (target.origin !== self.location.origin) return
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
-        const client = clients.find((item) => 'focus' in item)
-        return client
-          ? client.focus().then(() => client.navigate(target.href))
+        const existing = clients.find((c) => 'focus' in c)
+        return existing
+          ? existing.focus().then(() => existing.navigate(target.href))
           : self.clients.openWindow(target.href)
       })
   )
