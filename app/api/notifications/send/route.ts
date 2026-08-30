@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const adminMessaging = getAdminMessaging()
     const serviceSupabase = getServiceSupabase()
 
-    // ✅ Fetch gym logo and name to use in notification
+    // Fetch gym logo and name
     const { data: gym } = await serviceSupabase
       .from('gyms')
       .select('gym_name, logo_url')
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const gymLogo = gym?.logo_url || ''
     const gymName = gym?.gym_name || 'Your Gym'
 
-    // Fetch active push tokens for this member
+    // Fetch active push tokens
     const { data: rows, error: tokenError } = await serviceSupabase
       .from('member_push_tokens')
       .select('id, fcm_token')
@@ -51,29 +51,31 @@ export async function POST(request: Request) {
 
     if (tokenError) throw tokenError
 
-    // Send FCM push if tokens exist
     const responses = rows?.length
       ? await adminMessaging.sendEach(
           rows.map((row) => ({
             token: row.fcm_token,
-            notification: {
-              title,  // e.g. "Subscription Expiring Soon"
-              body,
-            },
+
+            // ✅ FIX: DATA-ONLY message — no `notification` field
+            // With notification field: browser may auto-handle it, bypassing sw.js
+            // With data-only: onBackgroundMessage in sw.js ALWAYS fires
+            // sw.js reads payload.data.title / body / gym_logo and shows the notification
             data: {
+              title,
+              body,
               type: type || 'general',
               url: url || '/',
-              // ✅ Pass gym logo + name so sw.js can show them
               gym_logo: gymLogo,
               gym_name: gymName,
             },
+
             webpush: {
-              fcmOptions: { link: url || '/' },
-              notification: {
-                // ✅ This sets the icon shown in the notification tray on Android
-                icon: gymLogo || '/logo-192.png',
-                badge: '/logo-96.png',
-                vibrate: [200, 100, 200],
+              headers: {
+                Urgency: 'high', // ✅ forces delivery even in Android battery saver
+                TTL: '86400',    // message lives 24 hours if device is offline
+              },
+              fcmOptions: {
+                link: url || '/',
               },
             },
           }))
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
     // Deactivate invalid tokens
     const invalid =
       rows
-        ?.filter((_, index) => !responses.responses[index]?.success)
+        ?.filter((_, i) => !responses.responses[i]?.success)
         .map((row) => row.id) || []
 
     if (invalid.length) {
@@ -93,7 +95,7 @@ export async function POST(request: Request) {
         .in('id', invalid)
     }
 
-    // Insert notification record in DB
+    // Insert into notifications table
     const { error: insertError } = await serviceSupabase.from('notifications').insert({
       member_id,
       gym_id,
