@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { ExternalLink } from 'lucide-react'
 import { InstallButton } from '@/components/install-button'
 import { GymInstallQr } from '@/components/gym-install-qr'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 interface Gym { gym_name: string; slug: string; logo_url: string | null; primary_color: string | null }
 interface GymPageProps { params: Promise<{ slug: string }> }

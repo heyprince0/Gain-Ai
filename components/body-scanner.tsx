@@ -26,7 +26,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { processImageFile } from "@/lib/image"
-import { supabase } from "@/lib/supabase"
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from "@/lib/auth-context"
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -602,7 +602,7 @@ Return ONLY the JSON object. No explanations, no markdown.`
         if (fileInputRef.current) fileInputRef.current.value = ''
     }, [setImageWithStorage])
 
-    // ─── Render ──────────────────────────────────────────────────────────
+    // ─── Render ──────────────────────────────────────────��───────────────
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-8 lg:px-6">

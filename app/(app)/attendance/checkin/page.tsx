@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CalendarCheck } from 'lucide-react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AttendanceQrScanner } from '@/components/attendance-qr-scanner'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 function CheckinContent() {
   const params = useSearchParams()

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 const FALLBACK_ICON = '/logo.png'
 
