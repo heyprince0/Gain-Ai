@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { User, Target, Moon, Sun, Dumbbell, Loader2, CalendarDays } from 'lucide-react'
+import { User, Target, Moon, Sun, Dumbbell, Loader2, CalendarDays, LogOut } from 'lucide-react'
 import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 
 const cleanName = (name: string) => name.replace(/\s[A-C]$/i, '').trim()
@@ -41,7 +41,7 @@ interface WorkoutProfile {
 }
 
 export function ProfileContent() {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()  // ✅ Added signOut
   const { theme, setTheme } = useTheme()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -203,6 +203,11 @@ export function ProfileContent() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // ✅ Logout handler
+  const handleLogout = async () => {
+    try { await signOut() } catch (error) { console.error("Logout failed:", error) }
   }
 
   if (loading) {
@@ -504,6 +509,20 @@ export function ProfileContent() {
               className='h-6 w-11'
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ✅ Logout Card - Added here */}
+      <Card className='rounded-2xl border-border/50 mt-6'>
+        <CardContent className='p-6'>
+          <Button
+            onClick={handleLogout}
+            variant="destructive"
+            className="w-full rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
         </CardContent>
       </Card>
 
