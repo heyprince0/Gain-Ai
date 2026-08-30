@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 interface Profile {
   calorie_goal: number

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 type GateState = 'checking' | 'blocked' | 'ready'
 

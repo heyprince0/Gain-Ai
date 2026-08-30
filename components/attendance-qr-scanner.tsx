@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 function gymIdFromPayload(value: string) {
   try {
