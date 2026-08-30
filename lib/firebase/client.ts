@@ -1,7 +1,7 @@
 'use client'
 
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { getMessaging, getToken, type Messaging } from 'firebase/messaging'
+import { getMessaging, getToken } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,12 +13,35 @@ const firebaseConfig = {
 }
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig)
-export const messaging: Messaging | null = typeof window === 'undefined' ? null : getMessaging(firebaseApp)
+
+// ✅ FIX: do NOT call getMessaging() at module level
+// It runs before SW is registered → Firebase doesn't know about /sw.js
+// → background push silently fails or uses wrong SW
 
 export async function requestPermissionAndGetToken(): Promise<string | null> {
-  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator) || !messaging) return null
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    !('serviceWorker' in navigator)
+  ) return null
+
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return null
+
+  // Register SW first
   const registration = await navigator.serviceWorker.register('/sw.js')
-  return getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY, serviceWorkerRegistration: registration })
+
+  // ✅ Wait until SW is fully active before getting token
+  // Without this, getToken can fire before SW is ready → wrong token linked
+  await navigator.serviceWorker.ready
+
+  // ✅ Get messaging AFTER SW is registered and active
+  const messagingInstance = getMessaging(firebaseApp)
+
+  const token = await getToken(messagingInstance, {
+    vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
+    serviceWorkerRegistration: registration, // ← ties token to YOUR sw.js
+  })
+
+  return token || null
 }
