@@ -31,6 +31,16 @@ export async function POST(request: Request) {
     const adminMessaging = getAdminMessaging()
     const serviceSupabase = getServiceSupabase()
 
+    // ✅ Fetch gym logo and name to use in notification
+    const { data: gym } = await serviceSupabase
+      .from('gyms')
+      .select('gym_name, logo_url')
+      .eq('id', gym_id)
+      .maybeSingle()
+
+    const gymLogo = gym?.logo_url || ''
+    const gymName = gym?.gym_name || 'Your Gym'
+
     // Fetch active push tokens for this member
     const { data: rows, error: tokenError } = await serviceSupabase
       .from('member_push_tokens')
@@ -46,9 +56,26 @@ export async function POST(request: Request) {
       ? await adminMessaging.sendEach(
           rows.map((row) => ({
             token: row.fcm_token,
-            notification: { title, body },
-            data: { type: type || 'general', url: url || '/' },
-            webpush: { fcmOptions: { link: url || '/' } },
+            notification: {
+              title,  // e.g. "Subscription Expiring Soon"
+              body,
+            },
+            data: {
+              type: type || 'general',
+              url: url || '/',
+              // ✅ Pass gym logo + name so sw.js can show them
+              gym_logo: gymLogo,
+              gym_name: gymName,
+            },
+            webpush: {
+              fcmOptions: { link: url || '/' },
+              notification: {
+                // ✅ This sets the icon shown in the notification tray on Android
+                icon: gymLogo || '/logo-192.png',
+                badge: '/logo-96.png',
+                vibrate: [200, 100, 200],
+              },
+            },
           }))
         )
       : { responses: [] }
@@ -66,17 +93,16 @@ export async function POST(request: Request) {
         .in('id', invalid)
     }
 
-    // ✅ FIX: was `type:` — column is named `notification_type` in your schema
-    // Also added `sent_at` which was missing
+    // Insert notification record in DB
     const { error: insertError } = await serviceSupabase.from('notifications').insert({
       member_id,
       gym_id,
       title,
       body,
-      notification_type: type || 'general',  // ← was `type:` — wrong column name
+      notification_type: type || 'general',
       url: url || '/',
       is_read: false,
-      sent_at: new Date().toISOString(),      // ← was missing
+      sent_at: new Date().toISOString(),
     })
 
     if (insertError) throw insertError
