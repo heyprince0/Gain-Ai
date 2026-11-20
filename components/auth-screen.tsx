@@ -17,6 +17,18 @@ export function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [step, setStep] = useState<SignUpStep>('email')
   const [confirmationSent, setConfirmationSent] = useState(false)
+  const [online, setOnline] = useState(true)
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine)
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('signup') === '1') setIsSignUp(true)
@@ -115,7 +127,8 @@ export function AuthScreen() {
 
             {error && <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 
-            <Button type="submit" disabled={loading} className="w-full">
+            {!online && <p role="status" className="text-sm text-muted-foreground">Internet is required to sign in or create an account.</p>}
+            <Button type="submit" disabled={loading || !online} className="w-full">
               {loading ? <><Loader2 className="mr-2 size-4 animate-spin" />{isSignUp ? 'Creating account…' : 'Signing in…'}</> : signupEmailStep ? 'Continue' : isSignUp ? 'Create account' : 'Sign in'}
             </Button>
 

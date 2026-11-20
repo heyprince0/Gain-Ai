@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { getOfflineContent, saveOfflineContent } from '@/lib/offline-storage'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,15 +57,33 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
   const [planName, setPlanName] = useState('')
   const [goalSummary, setGoalSummary] = useState('')
   const [showExerciseModal, setShowExerciseModal] = useState(false)
+  const [online, setOnline] = useState(true)
 
   useEffect(() => {
     const fetchTodayWorkout = async () => {
       try {
         const today = new Date()
         const jsDayOfWeek = today.getDay()
-        // Convert JS day (0=Sun,1=Mon...6=Sat) to plan day_number (1=Mon,2=Tue...7=Sun)
         const planDayNumber = jsDayOfWeek === 0 ? 7 : jsDayOfWeek
 
+        if (!navigator.onLine) {
+          const cachedPlan = await getOfflineContent<{ id: string; plan: WorkoutPlan['plan'] }>(userId, 'workout-plan')
+          if (!cachedPlan) {
+            setState('no-plan')
+            return
+          }
+          const cached = cachedPlan.plan
+          setPlanName(cached.plan_name || '')
+          setGoalSummary(cached.goal_summary || '')
+          const cachedDay = cached.days.find((day) => day.day_number === planDayNumber)
+          if (!cachedDay) {
+            setState('rest-day')
+            return
+          }
+          setTodayWorkout({ ...cachedDay, day_name: cleanName(cachedDay.day_name), exercises: cachedDay.exercises.map((exercise) => ({ ...exercise, name: cleanName(exercise.name) })) })
+          setState('not-completed')
+          return
+        }
         // Fetch latest active workout plan
         const { data: planData, error: planError } = await supabase
           .from('workout_plans')
@@ -84,6 +103,11 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
 
         const plan = planData.plan as WorkoutPlan['plan']
         const planId = planData.id
+        try {
+          await saveOfflineContent(userId, 'workout-plan', { id: planId, plan })
+        } catch (cacheError) {
+          console.error('Could not save offline workout plan:', cacheError)
+        }
         setPlanName(plan.plan_name || '')
         setGoalSummary(plan.goal_summary || '')
 
@@ -163,11 +187,21 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
       }
     }
 
+    const updateOnline = () => setOnline(navigator.onLine)
+    updateOnline()
+    window.addEventListener('online', updateOnline)
+    window.addEventListener('offline', updateOnline)
+    window.addEventListener('online', fetchTodayWorkout)
     fetchTodayWorkout()
+    return () => {
+      window.removeEventListener('online', updateOnline)
+      window.removeEventListener('offline', updateOnline)
+      window.removeEventListener('online', fetchTodayWorkout)
+    }
   }, [userId])
 
   const handleMarkComplete = async () => {
-    if (!todayLog) return
+    if (!online || !todayLog) return
 
     try {
       const { error } = await supabase
@@ -311,14 +345,16 @@ export function TodayWorkoutCard({ userId, onCreatePlan }: Props) {
                 </div>
               </div>
 
+              {!online && <p role="status" className="mt-4 text-center text-sm text-muted-foreground">Reconnect to save workout completion.</p>}
               <Button
+                disabled={!online}
                 onClick={() => {
                   setShowExerciseModal(false)
                   handleMarkComplete()
                 }}
                 className="w-full mt-6 bg-gradient-to-r from-primary to-[#00cc6a] text-black font-semibold rounded-xl"
               >
-                Mark Complete ✅
+                Mark Complete
               </Button>
             </div>
           </div>

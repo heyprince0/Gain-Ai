@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
 import { saveFuelScore } from '@/lib/fuel-score'
+import { useNetworkStatus } from '@/lib/use-network-status'
 
 interface LogMealDialogProps {
   open: boolean
@@ -38,6 +39,7 @@ interface MealAnalysisResult {
 }
 
 export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialogProps) {
+  const online = useNetworkStatus()
   const { user } = useAuth()
   const [state, setState] = useState<'input' | 'result'>('input')
   const [foodName, setFoodName] = useState('')
@@ -77,6 +79,10 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
   }
 
   const handleAnalyze = async () => {
+    if (!online) {
+      setError('Reconnect to analyze this meal.')
+      return
+    }
     if (!foodName.trim()) {
       setError('Please enter a food item')
       return
@@ -119,7 +125,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
   }
 
   const handleSave = async () => {
-    if (!user || !result) return
+    if (!online || !user || !result) return
 
     setSaving(true)
     try {
@@ -283,7 +289,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
               </Button>
               <Button
                 onClick={handleAnalyze}
-                disabled={analyzing || !foodName.trim() || !quantity}
+                disabled={!online || analyzing || !foodName.trim() || !quantity}
                 className='flex-1 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:opacity-90'
               >
                 {analyzing ? (
@@ -395,7 +401,7 @@ export function LogMealDialog({ open, onOpenChange, onMealSaved }: LogMealDialog
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={!online || saving}
                 className='flex-1 rounded-lg bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:opacity-90'
               >
                 {saving ? (

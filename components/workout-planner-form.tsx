@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, X, ChevronLeft, ChevronRight, User } from 'lucide-react'
+import { useNetworkStatus } from '@/lib/use-network-status'
 
 interface Props {
   userId: string
@@ -51,6 +52,7 @@ interface FormData {
 }
 
 export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClose }: Props) {
+  const online = useNetworkStatus()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -108,6 +110,10 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClos
   }
 
   const handleGeneratePlan = async () => {
+    if (!online) {
+      setError('Reconnect to generate or save a workout plan.')
+      return
+    }
     setLoading(true)
     setError(null)
 
@@ -413,7 +419,7 @@ Return exactly this JSON structure and nothing else:
         ) : (
           <Button
             onClick={handleGeneratePlan}
-            disabled={!isStepValid(8, formData)}
+            disabled={!online || !isStepValid(8, formData)}
             className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50 py-3"
           >
             Generate My Workout Plan ✨

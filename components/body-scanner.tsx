@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 import { processImageFile } from "@/lib/image"
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from "@/lib/auth-context"
+import { useNetworkStatus } from "@/lib/use-network-status"
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -406,6 +407,7 @@ function AreasToImproveCard({
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export function BodyScanner() {
+    const online = useNetworkStatus()
     const { user } = useAuth()
     const router = useRouter()
 
@@ -472,8 +474,8 @@ export function BodyScanner() {
         [setImageWithStorage]
     )
 
-    const handleAnalyze = useCallback(async () => {
-        if (!image) return
+  const handleAnalyze = useCallback(async () => {
+    if (!online || !image) return
         setScanning(true)
         setError(null)
         try {
@@ -567,10 +569,10 @@ Return ONLY the JSON object. No explanations, no markdown.`
         } finally {
             setScanning(false)
         }
-    }, [image])
+    }, [image, online])
 
     const handleSave = async () => {
-        if (!user || !results) return
+        if (!online || !user || !results) return
         setSaved(true)
         try {
             const now = new Date().toISOString()
@@ -790,6 +792,7 @@ Return ONLY the JSON object. No explanations, no markdown.`
                                         variant="outline"
                                         className="flex-1 rounded-xl bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
                                         onClick={handleSave}
+                                        disabled={!online}
                                     >
                                         <Heart className="mr-2 h-4 w-4" />
                                         Save to Dashboard
@@ -818,7 +821,7 @@ Return ONLY the JSON object. No explanations, no markdown.`
                             {image && !results && (
                                 <Button
                                     onClick={handleAnalyze}
-                                    disabled={scanning}
+                                    disabled={!online || scanning}
                                     size="lg"
                                     className="rounded-xl text-base font-semibold shadow-lg shadow-primary/25"
                                 >
