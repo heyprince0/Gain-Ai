@@ -12,6 +12,7 @@ interface Props {
   userId: string
   existingBodyFat?: number
   onComplete: () => void
+  onClose?: () => void
 }
 
 interface WorkoutDay {
@@ -49,7 +50,7 @@ interface FormData {
   athleteType: string | null
 }
 
-export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete }: Props) {
+export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClose }: Props) {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +65,20 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete }: Prop
     lifestyle: null,
     athleteType: null,
   })
+
+  // Fall back to onComplete if the parent didn't pass onClose
+  const handleClose = () => (onClose ?? onComplete)()
+
+  // Escape key closes the form (disabled while generating)
+  useEffect(() => {
+    if (loading) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // Fetch gender early so Step 3 / Step 4 can show gender-specific options
   useEffect(() => {
@@ -93,43 +108,45 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete }: Prop
   }
 
   const handleGeneratePlan = async () => {
-  setLoading(true)
-  setError(null)
+    setLoading(true)
+    setError(null)
 
-  try {
-    // Fetch user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('name, age, weight, height, gender')
-      .eq('id', userId)
-      .single()
+    try {
+      // Fetch user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('name, age, weight, height, gender')
+        .eq('id', userId)
+        .single()
 
-    if (profileError) throw new Error('Failed to fetch profile')
+      if (profileError) throw new Error('Failed to fetch profile')
 
-    const { age, weight, height, gender } = profile
+      const { age, weight, height, gender } = profile
 
-    // Upsert workout_profiles
-    const { error: upsertError } = await supabase
-      .from('workout_profiles')
-      .upsert(
-        {
-          user_id: userId,
-          body_fat_percent: formData.bodyFatPercent,
-          fitness_goal: formData.fitnessGoal,
-          secondary_goal: formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : null,
-          experience_level: formData.experienceLevel,
-          days_per_week: formData.daysPerWeek,
-          injury_info: formData.injuryInfo || null,
-          lifestyle: formData.lifestyle,
-          athlete_type: formData.athleteType,
-        },
-        { onConflict: 'user_id' }
-      )
+      // Upsert workout_profiles
+      const { error: upsertError } = await supabase
+        .from('workout_profiles')
+        .upsert(
+          {
+            user_id: userId,
+            body_fat_percent: formData.bodyFatPercent,
+            fitness_goal: formData.fitnessGoal,
+            secondary_goal: formData.secondaryGoal.length
+              ? formData.secondaryGoal.join(', ')
+              : null,
+            experience_level: formData.experienceLevel,
+            days_per_week: formData.daysPerWeek,
+            injury_info: formData.injuryInfo || null,
+            lifestyle: formData.lifestyle,
+            athlete_type: formData.athleteType,
+          },
+          { onConflict: 'user_id' }
+        )
 
-    if (upsertError) throw new Error('Failed to save workout profile')
+      if (upsertError) throw new Error('Failed to save workout profile')
 
-    // Build Gemini prompt
-    const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
+      // Build Gemini prompt
+      const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
 
 User details: age ${age}, gender ${gender || 'not specified'}, weight ${weight}kg, height ${height}cm, body fat ${formData.bodyFatPercent}%, main goal: ${formData.fitnessGoal}, secondary goals: ${formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : 'none'}, experience: ${formData.experienceLevel}, training days per week: ${formData.daysPerWeek}, lifestyle: ${formData.lifestyle}, training style: ${formData.athleteType}, injuries or limitations: ${formData.injuryInfo || 'none'}.
 
@@ -172,88 +189,89 @@ Return exactly this JSON structure and nothing else:
   "tips": ["string", "string", "string"]
 }`
 
-    // Call Gemini API directly — only one clean call
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 12000 },
-      }),
-    })
+      // Call Gemini API directly — only one clean call
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 12000 },
+        }),
+      })
 
-    if (!response.ok) throw new Error('Failed to call Gemini API')
+      if (!response.ok) throw new Error('Failed to call Gemini API')
 
-    const result = await response.json()
+      const result = await response.json()
 
-    if (!result.candidates || !result.candidates[0]) {
-      throw new Error('Gemini returned empty response')
-    }
-
-    let rawText = result.candidates[0].content.parts[0].text
-
-    // Clean any markdown fences
-    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim()
-
-    // Extract only the JSON part safely
-    const start = rawText.indexOf('{')
-    const end = rawText.lastIndexOf('}')
-    if (start === -1 || end === -1) throw new Error('Invalid JSON from Gemini')
-    const cleanJson = rawText.substring(start, end + 1)
-
-    const plan = JSON.parse(cleanJson) as WorkoutPlan
-
-    // Insert workout plan
-    const { data: planData, error: planError } = await supabase
-      .from('workout_plans')
-      .insert({ user_id: userId, plan })
-      .select('id')
-      .single()
-
-    if (planError || !planData) throw new Error('Failed to save workout plan')
-
-    const planId = planData.id
-
-    // Create workout logs
-    const today = new Date()
-    const dayOfWeek = today.getDay()
-
-    for (const day of plan.days) {
-      const dayNumber = day.day_number
-      const daysUntilTarget = ((dayNumber === 0 ? 7 : dayNumber) - dayOfWeek + 7) % 7
-      const workoutDate = new Date(today)
-      if (daysUntilTarget === 0 && dayOfWeek !== (dayNumber === 0 ? 7 : dayNumber)) {
-        workoutDate.setDate(workoutDate.getDate() + 7)
-      } else {
-        workoutDate.setDate(workoutDate.getDate() + daysUntilTarget)
+      if (!result.candidates || !result.candidates[0]) {
+        throw new Error('Gemini returned empty response')
       }
 
-      const dateStr = workoutDate.toISOString().split('T')[0]
+      let rawText = result.candidates[0].content.parts[0].text
 
-      await supabase.from('workout_logs').insert({
-        user_id: userId,
-        plan_id: planId,
-        workout_date: dateStr,
-        day_name: day.day_name,
-        completed: false,
-      })
+      // Clean any markdown fences
+      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim()
+
+      // Extract only the JSON part safely
+      const start = rawText.indexOf('{')
+      const end = rawText.lastIndexOf('}')
+      if (start === -1 || end === -1) throw new Error('Invalid JSON from Gemini')
+      const cleanJson = rawText.substring(start, end + 1)
+
+      const plan = JSON.parse(cleanJson) as WorkoutPlan
+
+      // Insert workout plan
+      const { data: planData, error: planError } = await supabase
+        .from('workout_plans')
+        .insert({ user_id: userId, plan })
+        .select('id')
+        .single()
+
+      if (planError || !planData) throw new Error('Failed to save workout plan')
+
+      const planId = planData.id
+
+      // Create workout logs
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+
+      for (const day of plan.days) {
+        const dayNumber = day.day_number
+        const daysUntilTarget = ((dayNumber === 0 ? 7 : dayNumber) - dayOfWeek + 7) % 7
+        const workoutDate = new Date(today)
+        if (daysUntilTarget === 0 && dayOfWeek !== (dayNumber === 0 ? 7 : dayNumber)) {
+          workoutDate.setDate(workoutDate.getDate() + 7)
+        } else {
+          workoutDate.setDate(workoutDate.getDate() + daysUntilTarget)
+        }
+
+        const dateStr = workoutDate.toISOString().split('T')[0]
+
+        await supabase.from('workout_logs').insert({
+          user_id: userId,
+          plan_id: planId,
+          workout_date: dateStr,
+          day_name: day.day_name,
+          completed: false,
+        })
+      }
+
+      onComplete()
+    } catch (err) {
+      console.error('Error generating plan:', err)
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setLoading(false)
     }
-
-    onComplete()
-
-  } catch (err) {
-    console.error('Error generating plan:', err)
-    setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-    setLoading(false)
   }
-}
 
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-foreground font-semibold">AI is building your personalized plan...</p>
+          <p className="text-foreground font-semibold">
+            AI is building your personalized plan...
+          </p>
         </div>
       </div>
     )
@@ -262,7 +280,17 @@ Return exactly this JSON structure and nothing else:
   if (error) {
     return (
       <div className="p-6">
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 mb-4">
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close workout planner"
+            className="-mr-1 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ff88]/60"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
           <p className="text-destructive text-sm font-medium">{error}</p>
         </div>
         <Button
@@ -280,14 +308,28 @@ Return exactly this JSON structure and nothing else:
 
   return (
     <div className="p-6">
-      {/* Header with step title and progress */}
+      {/* Header with step title, step counter, close button */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-foreground">
-            {getStepTitle(currentStep)}
-          </h2>
-          <p className="text-xs text-muted-foreground">Step {currentStep} of 8</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-foreground">
+              {getStepTitle(currentStep)}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Step {currentStep} of 8
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close workout planner"
+            className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ff88]/60"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+
         <Progress value={(currentStep / 8) * 100} className="h-2" />
       </div>
 
@@ -437,9 +479,7 @@ function Step2Goal({
             <div className="flex items-center gap-3">
               <span className="text-2xl">{emoji}</span>
               <div>
-                <p className={`font-semibold ${selected === id ? 'text-foreground' : 'text-foreground'}`}>
-                  {id}
-                </p>
+                <p className="font-semibold text-foreground">{id}</p>
                 <p className="text-xs text-muted-foreground">{desc}</p>
               </div>
             </div>
@@ -465,37 +505,45 @@ function Step3TrainingStyle({
     ? [
         {
           name: "🌸 Women's Fitness",
-          description: 'Designed for women focusing on strength, toning, fat loss, and overall fitness. Build lean muscle while improving confidence, endurance, and mobility.',
+          description:
+            'Designed for women focusing on strength, toning, fat loss, and overall fitness. Build lean muscle while improving confidence, endurance, and mobility.',
         },
         {
           name: '🍑 Glute Builder',
-          description: 'Prioritize glute growth and lower body development with progressive strength training for stronger legs, hips, and core.',
+          description:
+            'Prioritize glute growth and lower body development with progressive strength training for stronger legs, hips, and core.',
         },
         {
           name: '🔥 Lean & Toned',
-          description: 'Burn body fat while building lean muscle for a strong, athletic, and toned physique.',
+          description:
+            'Burn body fat while building lean muscle for a strong, athletic, and toned physique.',
         },
         {
           name: "💪 Women's Strength",
-          description: 'Increase full-body strength with resistance training while improving posture, bone health, and daily performance.',
+          description:
+            'Increase full-body strength with resistance training while improving posture, bone health, and daily performance.',
         },
       ]
     : [
         {
           name: 'Hybrid Athlete',
-          description: 'A balanced mix of strength training and cardio. Build muscle while improving endurance and overall athleticism.',
+          description:
+            'A balanced mix of strength training and cardio. Build muscle while improving endurance and overall athleticism.',
         },
         {
           name: 'Bodybuilder',
-          description: 'Focus on muscle hypertrophy and aesthetics. High volume training to maximize muscle size and definition.',
+          description:
+            'Focus on muscle hypertrophy and aesthetics. High volume training to maximize muscle size and definition.',
         },
         {
           name: 'Calisthenics Athlete',
-          description: 'Master your bodyweight. Build strength, control, and muscle using only bodyweight movements and minimal equipment.',
+          description:
+            'Master your bodyweight. Build strength, control, and muscle using only bodyweight movements and minimal equipment.',
         },
         {
           name: 'Endurance',
-          description: 'Improve cardiovascular fitness, stamina, and recovery to perform better in longer workouts, running, cycling, and sports.',
+          description:
+            'Improve cardiovascular fitness, stamina, and recovery to perform better in longer workouts, running, cycling, and sports.',
         },
       ]
 
@@ -515,9 +563,11 @@ function Step3TrainingStyle({
                 : 'border-border bg-card hover:border-border/80'
             }`}
           >
-            <p className={`font-semibold mb-1 ${
-              selected === name ? 'text-[#00ff88]' : 'text-foreground'
-            }`}>
+            <p
+              className={`font-semibold mb-1 ${
+                selected === name ? 'text-[#00ff88]' : 'text-foreground'
+              }`}
+            >
               {name}
             </p>
             <p className="text-xs text-muted-foreground">{description}</p>
@@ -558,6 +608,7 @@ function Step4SecondaryGoal({
         { id: 'Wider neck' },
         { id: 'Better Chest' },
         { id: 'Leg Strength' },
+        {id: 'Wider back' },
       ]
 
   const toggleGoal = (id: string) => {
@@ -595,9 +646,7 @@ function Step4SecondaryGoal({
                   : 'border-border bg-card hover:border-border/80'
               } ${isMaxed ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
-              <p className="text-sm font-semibold text-foreground">
-                {id}
-              </p>
+              <p className="text-sm font-semibold text-foreground">{id}</p>
             </button>
           )
         })}
@@ -633,9 +682,7 @@ function Step5Experience({
                 : 'border-border bg-card hover:border-border/80'
             }`}
           >
-            <p className={`font-semibold text-foreground`}>
-              {id}
-            </p>
+            <p className="font-semibold text-foreground">{id}</p>
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           </button>
         ))}
@@ -742,9 +789,7 @@ function Step8Lifestyle({
             <div className="flex items-center gap-3">
               <span className="text-2xl">{emoji}</span>
               <div>
-                <p className={`font-semibold text-foreground`}>
-                  {id}
-                </p>
+                <p className="font-semibold text-foreground">{id}</p>
                 <p className="text-xs text-muted-foreground">{subtitle}</p>
               </div>
             </div>
