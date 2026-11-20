@@ -1,7 +1,7 @@
 {
-  "name": "GainAi",
-  "short_name": "GainAi",
-  "description": "AI Powered Fitness App",
+  "name": "GainAI",
+  "short_name": "GainAI",
+  "description": "Your personal fitness companion for workouts, nutrition, and progress.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1318",

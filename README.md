@@ -1,127 +1,39 @@
-# GainAi — AI-Powered Nutrition & Fitness Platform
+# GainAI — Personal Fitness Companion
 
-> **Live at [gain-ai.vercel.app](https://gain-ai.vercel.app)**
+GainAI helps people build sustainable fitness habits with personalized workouts, nutrition tracking, AI food scanning, body composition insights, and progress tracking.
 
-GainAi is a full-stack AI fitness web app that helps gym members track nutrition, monitor body composition, and follow AI-generated workout plans. Built for gym owners as a B2B SaaS product — one subscription gives unlimited members access.
+## Product features
 
----
+- **Food scanner:** analyze meal photos and log calories, protein, carbohydrates, fats, fiber, and meal quality.
+- **Nutrition goals:** set personal calorie and macro targets from profile details and fitness goals.
+- **Workout planner:** create a personalized training plan and track completed sessions.
+- **Body scanner and progress:** review body composition and fitness trends over time.
+- **Personal dashboard:** bring daily workouts, food logs, goals, and progress together.
+- **Mobile install:** use GainAI as a responsive web app or installable PWA.
 
-## Tech Stack
+## Account flow
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| Database | Supabase (PostgreSQL + Auth) |
-| AI Model | Google Gemini 2.5 Flash |
-| Deployment | Vercel |
+1. Enter an email address.
+2. Choose a password.
+3. Add personal details: name, age, weight, height, gender, and fitness goal.
+4. Continue to the personal fitness dashboard.
 
----
+Profiles are individual accounts. Gym membership, phone-number matching, and gym assignment are not part of onboarding.
 
-## Core Features
+## Stack
 
-### 🍽️ Food Scanner
-- Upload or capture a meal photo
-- Gemini AI analyzes the image and returns full macro breakdown (calories, protein, carbs, fats, fiber)
-- Each meal gets a **health score (1–10)** and fitness-specific AI note
-- Results saved to Supabase with IST timezone handling
+- Next.js App Router and TypeScript
+- Supabase Auth and PostgreSQL
+- Tailwind CSS and shadcn/ui
+- AI-assisted food and workout experiences
+- Vercel deployment
 
-### ⚡ Diet Accuracy Score (Fuel Score)
-A persistent, cumulative nutrition score that reflects your overall diet quality over time.
+## Primary routes
 
-**Algorithm:**
-```
-todayRawScore = (MacroScore × 50%) + (FoodQualityScore × 50%)
-
-MacroScore     = average of 4 macro scores (calories, protein, carbs, fats)
-                 — penalizes going over goal, not just under
-FoodQualityScore = average health_score of all today's meals (normalized 0–100)
-
-todayEffect    = ((todayRawScore - 50) / 50) × 25   → range: -25 to +25
-fuelScore      = yesterdayScore + todayEffect         → clamped 0–100
-```
-
-- Score **carries forward** daily — never resets
-- Eating clean pushes it up, junk food pulls it down
-- New users start at 50%
-- Comparison line shows delta vs yesterday (↑ up / ↓ down)
-
-### 🏋️ AI Workout Planner
-- AI generates a personalized weekly workout plan based on user profile
-- Powered by Gemini API with structured JSON output
-- Workout completion tracked per day
-
-### 📊 Body Scanner
-- Log body fat %, weight, and measurements over time
-- Progress tracked and visualized on the Body tab
-
-### 🔐 Access Control (Gym Owner Feature)
-- Gym owners whitelist member phone numbers
-- Only whitelisted members can create accounts
-- Gym admin dashboard to manage members
-
----
-
-## Project Structure
-
-```
-/app
-  /dashboard        → Main member dashboard
-  /food-scanner     → Food photo upload + AI analysis
-  /body             → Body composition tracker
-  /api/gemini       → Server-side Gemini API route
-
-/components
-  /fuel-score-card  → Diet Accuracy Score display card
-  /dashboard        → Dashboard layout + stat cards
-  /food-scanner     → Scanner UI component
-
-/lib
-  /fuel-score.ts    → Fuel score calculation + Supabase upsert
-  /auth-context.tsx → Supabase auth provider
-  /supabase.ts      → Supabase client
-```
-
----
-
-## Supabase Tables
-
-| Table | Purpose |
-|-------|---------|
-| `profiles` | User profile, macro goals, gym assignment |
-| `food_scans` | Every scanned meal with macros + health_score |
-| `fuel_scores` | Daily diet accuracy scores (one row per user per day) |
-| `body_scans` | Body fat %, weight, measurements over time |
-| `workout_plans` | AI-generated weekly workout plans |
-| `gym_members` | Whitelisted phone numbers per gym |
-
----
-
-
-## Running Locally
-
-```bash
-git clone https://github.com/heyPrakash/GainAi-new-version
-cd GainAi-new-version
-npm install
-cp .env.example .env.local
-# Add your environment variables
-npm run dev
-```
-
----
-
-## Business Model
-
-- **B2B SaaS** — sold to gym owners at ₹999/month
-- Unlimited members per gym subscription
-- Gym owner gets admin dashboard to manage member access
-- Members use the full app for free under their gym's plan
-
----
-
-## Cosmos
-
-Founder **Prince** — 
-
+- `/` — GainAI overview
+- `/dashboard` — personal fitness dashboard
+- `/food-scanner` — meal photo analysis
+- `/body-scanner` — body composition tracking
+- `/progress` — personal fitness progress
+- `/profile` — personal details and goals
+- `/download` and `/install` — app install guidance

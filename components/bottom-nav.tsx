@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, TrendingUp, ScanLine, Activity, User, CreditCard, ShoppingBag } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, ScanLine, Activity, User } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useBottomNav } from '@/contexts/bottom-nav-context'   // <--- new import
@@ -23,12 +23,10 @@ export function BottomNav() {
   const activeColor = '#00ff88'
 
   const navItems = [
-    { icon: LayoutDashboard, path: '/dashboard' },
-    { icon: TrendingUp, path: '/progress' },
-    { icon: Activity, path: '/body-scanner' },
-    { icon: CreditCard, path: '/membership' },
-    { icon: ShoppingBag, path: '/shop' },
-    { icon: User, path: '/profile' },
+    { icon: LayoutDashboard, path: '/dashboard', label: 'Dashboard' },
+    { icon: TrendingUp, path: '/progress', label: 'Progress' },
+    { icon: Activity, path: '/body-scanner', label: 'Body scanner' },
+    { icon: User, path: '/profile', label: 'Profile' },
   ]
 
   const leftItems = navItems.slice(0, 3)
@@ -54,6 +52,7 @@ export function BottomNav() {
       }}
     >
       <nav
+        aria-label="Primary navigation"
         className="bottom-nav bg-white/90 dark:bg-[#0f1318]/90 border border-gray-200 dark:border-[#1a2028]"
         style={{
           position: 'relative',
@@ -73,11 +72,12 @@ export function BottomNav() {
           pointerEvents: 'auto',
         }}
       >
-        {leftItems.map(({ icon: Icon, path }) => (
+        {leftItems.map(({ icon: Icon, path, label }) => (
           <NavButton
             key={path}
             Icon={Icon}
             active={isActive(path)}
+            label={label}
             activeColor={activeColor}
             inactiveColor={inactiveColor}
             onClick={() => router.push(path)}
@@ -87,11 +87,12 @@ export function BottomNav() {
         {/* Spacer for the center FAB */}
         <div style={{ width: '48px', flexShrink: 0 }} />
 
-        {rightItems.map(({ icon: Icon, path }) => (
+        {rightItems.map(({ icon: Icon, path, label }) => (
           <NavButton
             key={path}
             Icon={Icon}
             active={isActive(path)}
+            label={label}
             activeColor={activeColor}
             inactiveColor={inactiveColor}
             onClick={() => router.push(path)}
@@ -101,6 +102,7 @@ export function BottomNav() {
         {/* Center FAB for Food Scanner */}
         <button
           type="button"
+          aria-label="Food scanner"
           onClick={() => router.push('/food-scanner')}
           style={{
             position: 'absolute',
@@ -138,12 +140,14 @@ export function BottomNav() {
 function NavButton({
   Icon,
   active,
+  label,
   activeColor,
   inactiveColor,
   onClick,
 }: {
   Icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>
   active: boolean
+  label: string
   activeColor: string
   inactiveColor: string
   onClick: () => void
@@ -151,12 +155,12 @@ function NavButton({
   return (
     <button
       type="button"
+      aria-label={label}
       onClick={onClick}
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'none',
         border: 'none',
         cursor: 'pointer',
         width: '40px',

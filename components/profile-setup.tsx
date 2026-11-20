@@ -6,11 +6,9 @@ import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
-import { PhoneNotLinkedModal } from '@/components/phone-not-linked-modal'
 
 interface ProfileFormData {
   fullName: string
-  phone: string
   age: number
   weight: number
   goal: 'lose' | 'maintain' | 'gain'
@@ -51,10 +49,8 @@ export function ProfileSetup() {
   const { user, refreshProfile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showPhoneNotLinkedModal, setShowPhoneNotLinkedModal] = useState(false)
   const [formData, setFormData] = useState<ProfileFormData>({
     fullName: '',
-    phone: '',
     age: 25,
     weight: 70,
     goal: 'maintain',
@@ -70,27 +66,7 @@ export function ProfileSetup() {
     try {
       if (!user) throw new Error('User not authenticated')
 
-      // 1. Check if phone number exists in gym_members (using secure RPC)
-      const { data: exists, error: checkError } = await supabase.rpc(
-        'check_member_phone_exists',
-        { p_phone: formData.phone }
-      )
-
-      if (checkError) {
-        console.error('Error checking gym membership:', checkError)
-        setError('Unable to verify gym membership. Please try again.')
-        setLoading(false)
-        return
-      }
-
-      if (!exists) {
-        // Phone number not found in any gym – show modal and stop
-        setShowPhoneNotLinkedModal(true)
-        setLoading(false)
-        return
-      }
-
-      // 2. Phone exists – proceed with profile creation
+      // Save personal details and calculate nutrition targets for the new account.
       const heightInCm = parseFloat(height)
       const goals = calculateGoals(formData.age, formData.weight, heightInCm, formData.goal, formData.gender)
 
@@ -100,7 +76,6 @@ export function ProfileSetup() {
           {
             id: user.id,
             name: formData.fullName,
-            phone: formData.phone || null,
             age: parseInt(formData.age.toString()),
             weight: parseFloat(formData.weight.toString()),
             height: heightInCm,
@@ -119,26 +94,7 @@ export function ProfileSetup() {
 
       if (upsertError) throw upsertError
 
-      // 3. Link the profile to the gym member record (using secure RPC)
-      const { data: linked, error: linkError } = await supabase.rpc(
-        'link_member_profile',
-        { p_phone: formData.phone, p_profile_id: user.id }
-      )
-
-      if (linkError) {
-        console.error('Error linking profile:', linkError)
-        setError('Failed to link your profile. Please contact support.')
-        setLoading(false)
-        return
-      }
-
-      if (!linked) {
-        setError('This phone number is already linked to another account or not found.')
-        setLoading(false)
-        return
-      }
-
-      // 4. Refresh user profile and finish
+      // Refresh the profile so onboarding can finish.
       await refreshProfile()
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to setup profile'
@@ -152,8 +108,8 @@ export function ProfileSetup() {
     <div className='flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-muted p-4'>
       <Card className='w-full max-w-md border-border/50'>
         <CardHeader className='space-y-2 text-center'>
-          <CardTitle className='text-2xl'>Complete Your Profile</CardTitle>
-          <CardDescription>Help us personalize your fitness journey</CardDescription>
+          <CardTitle className='text-2xl'>Personal details</CardTitle>
+          <CardDescription>Step 3 of 3 · Help us personalize your fitness journey</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className='space-y-4'>
@@ -170,19 +126,6 @@ export function ProfileSetup() {
               />
             </div>
 
-            {/* Phone Number */}
-            <div>
-              <label className='block text-sm font-medium text-foreground mb-1'>Phone Number</label>
-              <input
-                type='tel'
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:border-primary focus:outline-none'
-                placeholder='e.g. 9876543210'
-                required
-              />
-            </div>
-
             {/* Gender */}
             <div>
               <label className='block text-sm font-medium text-foreground mb-1'>Gender</label>
@@ -190,9 +133,8 @@ export function ProfileSetup() {
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                 className='w-full rounded-lg border border-input bg-background px-3 py-2 text-sm'
-                required
               >
-                <option value=''>Select gender</option>
+                <option value=''>Prefer not to say</option>
                 <option value='Male'>Male</option>
                 <option value='Female'>Female</option>
                 <option value='Other'>Other</option>
@@ -266,17 +208,12 @@ export function ProfileSetup() {
 
             <Button type='submit' disabled={loading} className='w-full rounded-lg'>
               {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-              {loading ? 'Setting up...' : 'Complete Setup'}
+              {loading ? 'Saving your details…' : 'Done'}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Modal shown when phone is not linked */}
-      <PhoneNotLinkedModal
-        open={showPhoneNotLinkedModal}
-        onOpenChange={setShowPhoneNotLinkedModal}
-      />
     </div>
   )
 }

@@ -1,68 +1,43 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { usePwaStandalone } from '@/lib/use-pwa-standalone'
-import { useGymBranding } from '@/lib/use-gym-branding'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Chrome } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+
+type SignUpStep = 'email' | 'password'
 
 export function AuthScreen() {
-  const router = useRouter()
-  const { signUp, signIn, signInWithGoogle } = useAuth()
-  const isStandalone = usePwaStandalone()
-  const branding = useGymBranding()
-  const [role, setRole] = useState<'member' | 'owner'>('member')
+  const { signUp, signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [step, setStep] = useState<SignUpStep>('email')
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
-  // Opened from the install-app QR / home screen icon — this is always a
-  // member opening the app, so there's no role picker to show at all.
   useEffect(() => {
-    if (isStandalone) setRole('member')
-  }, [isStandalone])
+    if (new URLSearchParams(window.location.search).get('signup') === '1') setIsSignUp(true)
+  }, [])
 
-  const goToRoleDestination = () => {
-    // Members keep the exact existing behavior (no redirect here — the
-    // surrounding app already routes them once the auth state updates).
-    // Owners land on the one-time gym setup screen, which itself skips
-    // ahead to the dashboard if a gym profile already exists for them.
-    if (role === 'owner') {
-      router.push('/gym-owner/setup')
-    }
-  }
-
-  const handleGoogleSignIn = async () => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setError('')
-    setGoogleLoading(true)
-    try {
-      await signInWithGoogle()
-      goToRoleDestination()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed')
-    } finally {
-      setGoogleLoading(false)
+    if (isSignUp && step === 'email') {
+      setStep('password')
+      return
     }
-  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
     setLoading(true)
-
     try {
       if (isSignUp) {
         await signUp(email, password)
+        setConfirmationSent(true)
       } else {
         await signIn(email, password)
       }
-      goToRoleDestination()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -70,139 +45,95 @@ export function AuthScreen() {
     }
   }
 
+  const beginSignUp = () => {
+    setIsSignUp(true)
+    setStep('email')
+    setError('')
+    setConfirmationSent(false)
+  }
+
+  if (confirmationSent) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Check your email</CardTitle>
+            <CardDescription>Confirm your email address to continue to your personal details.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center text-sm text-muted-foreground">We sent a confirmation link to {email}.</CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  const signupEmailStep = isSignUp && step === 'email'
+
   return (
-    <div className='flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4'>
-      <Card className='w-full max-w-md'>
-        <CardHeader className='text-center'>
-          {branding?.logo_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={branding.logo_url}
-              alt={branding.gym_name}
-              className='mx-auto mb-2 size-14 rounded-2xl object-cover'
-            />
-          )}
-          <CardTitle className='text-2xl'>{branding?.gym_name ?? 'GainAi'}</CardTitle>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">{isSignUp ? 'Create your GainAI account' : 'Welcome back'}</CardTitle>
           <CardDescription>
-            {isSignUp ? 'Create an account to get started' : 'Sign in to your account'}
+            {signupEmailStep ? 'Step 1 of 2 · Start with your email' : isSignUp ? 'Step 2 of 2 · Choose a password' : 'Sign in to continue your fitness journey'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!isStandalone && (
-            <div className='mb-5 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1'>
-              <Button
-                type='button'
-                variant={role === 'member' ? 'secondary' : 'ghost'}
-                className='h-11'
-                onClick={() => setRole('member')}
-              >
-                Member
-              </Button>
-              <Button
-                type='button'
-                variant={role === 'owner' ? 'secondary' : 'ghost'}
-                className='h-11'
-                onClick={() => setRole('owner')}
-              >
-                Gym Owner
-              </Button>
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {(!isSignUp || signupEmailStep) && (
+              <div>
+                <label htmlFor="auth-email" className="mb-1 block text-sm font-medium">Email</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            )}
+            {(!isSignUp || !signupEmailStep) && (
+              <div>
+                <label htmlFor="auth-password" className="mb-1 block text-sm font-medium">Password</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="At least 8 characters"
+                  minLength={8}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            )}
 
-          <div className='space-y-4'>
-            <Button
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading}
-              variant='outline'
-              className='w-full'
-            >
-              {googleLoading ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <Chrome className='mr-2 h-4 w-4' />
-                  Continue with Google
-                </>
-              )}
+            {error && <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? <><Loader2 className="mr-2 size-4 animate-spin" />{isSignUp ? 'Creating account…' : 'Signing in…'}</> : signupEmailStep ? 'Continue' : isSignUp ? 'Create account' : 'Sign in'}
             </Button>
 
-            <div className='relative'>
-              <div className='absolute inset-0 flex items-center'>
-                <div className='w-full border-t border-border' />
-              </div>
-              <div className='relative flex justify-center text-xs uppercase'>
-                <span className='bg-card px-2 text-muted-foreground'>Or continue with email</span>
-              </div>
+            {isSignUp && step === 'password' && (
+              <button type="button" onClick={() => setStep('email')} className="flex w-full items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="size-4" /> Change email
+              </button>
+            )}
+
+            <div className="text-center text-sm">
+              <span className="text-muted-foreground">{isSignUp ? 'Already have an account? ' : "Don’t have an account? "}</span>
+              <button type="button" onClick={() => isSignUp ? (setIsSignUp(false), setStep('email')) : beginSignUp()} className="font-medium text-primary hover:underline">
+                {isSignUp ? 'Sign in' : 'Sign up'}
+              </button>
             </div>
-
-            <form onSubmit={handleSubmit} className='space-y-4'>
-              <div>
-                <label className='block text-sm font-medium mb-1'>Email</label>
-                <input
-                  type='email'
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder='you@example.com'
-                  className='w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none'
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className='block text-sm font-medium mb-1'>Password</label>
-                <input
-                  type='password'
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder='••••••••'
-                  className='w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none'
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              {error && (
-                <div className='p-3 bg-red-500/10 border border-red-500/50 rounded-lg'>
-                  <p className='text-sm text-red-600'>{error}</p>
-                </div>
-              )}
-
-              <Button type='submit' disabled={loading} className='w-full'>
-                {loading ? (
-                  <>
-                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                    {isSignUp ? 'Creating account...' : 'Signing in...'}
-                  </>
-                ) : isSignUp ? (
-                  'Sign Up'
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-
-              <div className='text-center text-sm'>
-                <span className='text-muted-foreground'>
-                  {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                </span>
-                <button
-                  type='button'
-                  onClick={() => {
-                    setIsSignUp(!isSignUp)
-                    setError('')
-                  }}
-                  className='text-primary hover:underline font-medium'
-                  disabled={loading}
-                >
-                  {isSignUp ? 'Sign In' : 'Sign Up'}
-                </button>
-              </div>
-            </form>
-          </div>
+          </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   )
 }

@@ -6,15 +6,13 @@ import { Download, Share2, Plus, Dumbbell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { getDeferredInstallPrompt, consumeDeferredInstallPrompt, isIOSDevice, isStandaloneDisplay } from '@/lib/pwa-install'
-import { useGymBranding } from '@/lib/use-gym-branding'
 
 export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
   const [installing, setInstalling] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
-  const branding = useGymBranding()
-  const gymName = branding?.gym_name || 'GainAi'
-  const logoUrl = branding?.logo_url || '/logo.png'
+  const appName = 'GainAI'
+  const logoUrl = '/logo.png'
 
   useEffect(() => {
     setIsIOS(isIOSDevice())
@@ -49,16 +47,16 @@ export function PwaInstallPrompt({ onInstalled }: { onInstalled: () => void }) {
         <CardContent className="flex flex-col items-center gap-6 p-8 text-center sm:p-10">
           <div className="flex size-20 items-center justify-center rounded-3xl bg-muted ring-1 ring-border">
             {!logoFailed ? (
-              <Image src={logoUrl} alt={`${gymName} logo`} width={56} height={56} className="size-14 rounded-2xl object-cover" onError={() => setLogoFailed(true)} unoptimized />
+              <Image src={logoUrl} alt="GainAI logo" width={56} height={56} className="size-14 rounded-2xl object-cover" onError={() => setLogoFailed(true)} unoptimized />
             ) : <Dumbbell className="size-10 text-[#00ff88]" aria-hidden="true" />}
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#00ff88]">{gymName}</p>
+            <p className="text-sm font-medium text-[#00ff88]">{appName}</p>
             <h1 className="text-balance text-2xl font-semibold text-foreground">
-              {isIOS ? 'Add your member app' : `Install ${gymName}`}
+              {isIOS ? 'Add your member app' : `Install ${appName}`}
             </h1>
             <p className="text-pretty text-sm leading-6 text-muted-foreground">
-              {isIOS ? <>Tap the Share button <Share2 className="mx-1 inline size-4" aria-hidden="true" /> then choose <span className="font-medium text-foreground">Add to Home Screen</span> <Plus className="mx-1 inline size-4" aria-hidden="true" />.</> : 'Keep your gym tools one tap away with the fastest app experience.'}
+              {isIOS ? <>Tap the Share button <Share2 className="mx-1 inline size-4" aria-hidden="true" /> then choose <span className="font-medium text-foreground">Add to Home Screen</span> <Plus className="mx-1 inline size-4" aria-hidden="true" />.</> : 'Keep your workouts and nutrition tools one tap away.'}
             </p>
           </div>
           <Button className="w-full" onClick={handleInstallClick} disabled={installing}>

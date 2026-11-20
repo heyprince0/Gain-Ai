@@ -128,7 +128,7 @@ export function FoodScanner() {
   "total_fiber": <number>,
   "health_score": <whole number between 1 and 10, NO decimals>,
   "health_rating": "<Excellent, Good, Average, Poor, Very Poor>",
-  "ai_note": "<2-3 sentences about this food from a fitness/gym perspective — is it good for muscle building, fat loss, etc. Be specific and helpful>",
+  "ai_note": "<2-3 sentences about this food from a fitness perspective — is it good for muscle building, fat loss, etc. Be specific and helpful>",
   "items": [
     {
       "food_name": "<item name>",
@@ -141,7 +141,7 @@ export function FoodScanner() {
   ]
 }
 
-Health score rules for gym/fitness people (1–10 whole numbers):
+Health score rules for fitness goals (1–10 whole numbers):
 - 9-10: Excellent (high protein, complex carbs, low fat)
 - 7-8: Good
 - 5-6: Average

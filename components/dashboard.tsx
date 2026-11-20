@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell, Zap, Plus, Utensils, Clock, ScanLine } from 'lucide-react'
+import { Activity, TrendingUp, Flame, Target, Calendar, Loader as Loader2, User, Dumbbell, Zap, Plus, Utensils, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -14,8 +14,6 @@ import { TodayWorkoutCard } from '@/components/today-workout-card'
 import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
-import { QrScannerDialog } from '@/components/qr-scanner-dialog'
-import { AccessRevokedModal } from '@/components/access-revoked-modal'
 
 interface Profile {
   id: string
@@ -33,7 +31,6 @@ interface Profile {
   bmr?: number
   tdee?: number
   created_at: string
-  gym_id?: string | null
 }
 
 interface FoodScan {
@@ -137,8 +134,6 @@ export function Dashboard() {
   const [showPlanner, setShowPlanner] = useState(false)
   const [hasWorkoutPlan, setHasWorkoutPlan] = useState(false)
   const [showLogMeal, setShowLogMeal] = useState(false)
-  const [showScanner, setShowScanner] = useState(false)
-  const [accessRevoked, setAccessRevoked] = useState(false)
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fats: 0 })
   const [todayFuelScore, setTodayFuelScore] = useState<number | null>(null)
   const [yesterdayFuelScore, setYesterdayFuelScore] = useState<number | null>(null)
@@ -243,46 +238,13 @@ export function Dashboard() {
   }
 
   useEffect(() => {
-    if (!user || !profile?.gym_id) return
-
-    let cancelled = false
-
-    async function checkAccess() {
-      const { data } = await supabase
-        .from('gym_members')
-        .select('app_access')
-        .eq('linked_profile_id', user!.id)
-        .eq('gym_id', profile!.gym_id)
-        .is('deleted_at', null)
-        .maybeSingle()
-
-      if (cancelled) return
-      if (data && !data.app_access) setAccessRevoked(true)
-    }
-
-    void checkAccess()
-    const interval = setInterval(checkAccess, 30000)
-
-    function handleVisibility() {
-      if (document.visibilityState === 'visible') void checkAccess()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [user, profile?.gym_id])
-
-  useEffect(() => {
     const fetchData = async () => {
       if (!user) return
 
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at, gym_id')
+          .select('id, name, age, weight, height, goal, gender, calorie_goal, protein_goal, carbs_goal, fat_goal, fiber_goal, bmr, tdee, created_at')
           .eq('id', user.id)
           .maybeSingle()
 
@@ -457,7 +419,7 @@ export function Dashboard() {
 
   return (
     <div className='mx-auto max-w-2xl w-full px-4 py-6 pb-24'>
-      {/* Header – No gym branding */}
+      {/* Personal dashboard header */}
       <div className='mb-8 flex items-start justify-between gap-3'>
         <div>
           <h1 className='text-3xl font-bold tracking-tight text-foreground'>
@@ -467,13 +429,7 @@ export function Dashboard() {
             Today's fitness overview
           </p>
         </div>
-        <button
-          onClick={() => setShowScanner(true)}
-          aria-label="Scan gym attendance QR"
-          className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card text-primary transition-colors hover:bg-primary/10'
-        >
-          <ScanLine className='h-5 w-5' />
-        </button>
+
       </div>
 
       {/* Streak Strip */}
@@ -714,13 +670,6 @@ export function Dashboard() {
         onMealSaved={refetchData}
       />
 
-      <QrScannerDialog
-        open={showScanner}
-        onOpenChange={setShowScanner}
-        userId={user?.id ?? ''}
-      />
-
-      <AccessRevokedModal open={accessRevoked} />
     </div>
   )
 }
