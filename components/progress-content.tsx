@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
+import { getOfflineContent, saveOfflineContent } from '@/lib/offline-storage'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -43,6 +44,17 @@ export function ProgressContent() {
     const fetchData = async () => {
       try {
         setLoading(true)
+        if (!navigator.onLine) {
+          const cached = await getOfflineContent<{ calorieData: any[]; bodyFatData: any[]; workoutData: any[]; streak: number; goalsHit: number }>(user.id, `progress-${period}`)
+          if (cached) {
+            setCalorieData(cached.calorieData)
+            setBodyFatData(cached.bodyFatData)
+            setWorkoutData(cached.workoutData)
+            setStreak(cached.streak)
+            setGoalsHit(cached.goalsHit)
+          }
+          return
+        }
 
         // Calculate date range
         const now = new Date()
@@ -50,6 +62,7 @@ export function ProgressContent() {
         if (period === '1w') startDate.setDate(now.getDate() - 7)
         else if (period === '1m') startDate.setDate(now.getDate() - 30)
         else if (period === '3m') startDate.setDate(now.getDate() - 90)
+        const offlineSnapshot = { calorieData: [] as any[], bodyFatData: [] as any[], workoutData: [] as any[], streak: 0, goalsHit: 0 }
 
         // Fetch calorie data
         const { data: scans } = await supabase
@@ -82,6 +95,7 @@ export function ProgressContent() {
           }))
 
           setCalorieData(chartData)
+          offlineSnapshot.calorieData = chartData
         }
 
         // Fetch body fat progression
@@ -103,6 +117,7 @@ export function ProgressContent() {
             bodyFat: scan.body_fat || scan.body_fat_percent || 0,
           }))
           setBodyFatData(bodyData)
+          offlineSnapshot.bodyFatData = bodyData
         }
 
         // Fetch workout consistency
@@ -117,6 +132,7 @@ export function ProgressContent() {
           const completed = logs.filter((l: WorkoutLog) => l.completed).length
           const total = logs.length
           setGoalsHit(completed)
+          offlineSnapshot.goalsHit = completed
 
           // Group workouts by week
           const workoutGrouped: Record<string, number> = {}
@@ -139,6 +155,7 @@ export function ProgressContent() {
           }))
 
           setWorkoutData(workoutChartData)
+          offlineSnapshot.workoutData = workoutChartData
         }
 
         // Calculate streak
@@ -179,6 +196,11 @@ export function ProgressContent() {
           }
 
           setStreak(streakCount)
+          offlineSnapshot.streak = streakCount
+        }
+
+        if (scans && bodyscans && logs && allLogs) {
+          await saveOfflineContent(user.id, `progress-${period}`, offlineSnapshot)
         }
       } catch (error) {
         console.error('Error fetching progress data:', error)
@@ -188,6 +210,8 @@ export function ProgressContent() {
     }
 
     fetchData()
+    window.addEventListener('online', fetchData)
+    return () => window.removeEventListener('online', fetchData)
   }, [user, period])
 
   if (loading) {

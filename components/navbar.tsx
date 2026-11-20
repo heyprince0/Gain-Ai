@@ -6,6 +6,7 @@ import { Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import { OfflineStatus } from '@/components/offline-status'
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
@@ -21,6 +22,7 @@ export function Navbar() {
           <span className="text-base font-bold tracking-tight text-foreground sm:text-lg">Gain<span className="text-primary">AI</span></span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
+          <OfflineStatus />
           {mounted && <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="size-9 rounded-lg" aria-label="Toggle theme">
             {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>}

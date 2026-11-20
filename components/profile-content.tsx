@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { User, Target, Moon, Sun, Dumbbell, Loader2, CalendarDays, LogOut } from 'lucide-react'
 import { WorkoutPlannerForm } from '@/components/workout-planner-form'
+import { getOfflineContent } from '@/lib/offline-storage'
+import { useNetworkStatus } from '@/lib/use-network-status'
 
 const cleanName = (name: string) => name.replace(/\s[A-C]$/i, '').trim()
 const dayAbbreviations = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -42,6 +44,7 @@ interface WorkoutProfile {
 export function ProfileContent() {
   const { user, signOut } = useAuth()  // ✅ Added signOut
   const { theme, setTheme } = useTheme()
+  const online = useNetworkStatus()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -65,6 +68,29 @@ export function ProfileContent() {
 
       try {
         setLoading(true)
+
+        if (!navigator.onLine) {
+          const [dashboardCache, planCache] = await Promise.all([
+            getOfflineContent<{ profile?: Profile; workoutProfile?: WorkoutProfile }>(user.id, 'dashboard'),
+            getOfflineContent<{ plan: unknown }>(user.id, 'workout-plan'),
+          ])
+          if (dashboardCache?.profile) {
+            setProfile(dashboardCache.profile)
+            setWorkoutProfile(dashboardCache.workoutProfile ?? null)
+            setForm({
+              name: dashboardCache.profile.name || '',
+              age: dashboardCache.profile.age?.toString() || '',
+              weight: dashboardCache.profile.weight?.toString() || '',
+              height: dashboardCache.profile.height?.toString() || '',
+              goal: dashboardCache.profile.goal || 'maintain',
+              gender: dashboardCache.profile.gender || '',
+            })
+          } else {
+            setError('Your profile has not been saved for offline use yet.')
+          }
+          setWeeklyPlan(planCache?.plan ?? null)
+          return
+        }
 
         // Fetch profile
         const { data: profileData, error: profileError } = await supabase
@@ -125,6 +151,8 @@ export function ProfileContent() {
     }
 
     fetchProfile()
+    window.addEventListener('online', fetchProfile)
+    return () => window.removeEventListener('online', fetchProfile)
   }, [user])
 
   const calculateGoals = (age: number, weight: number, height: number, goal: string, gender: string) => {
@@ -149,6 +177,7 @@ export function ProfileContent() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!online) return
     setSaving(true)
     setError(null)
     setSuccess(false)
@@ -335,7 +364,7 @@ export function ProfileContent() {
 
             <Button
               type='submit'
-              disabled={saving}
+              disabled={!online || saving}
               className='w-full rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30'
             >
               {saving ? (
@@ -464,7 +493,9 @@ export function ProfileContent() {
               : "Let AI build your personalized weekly workout plan."}
           </p>
 
+          {!online && <p role='status' className='mb-3 text-xs text-muted-foreground'>Internet is required to generate or save a workout plan.</p>}
           <Button
+            disabled={!online}
             onClick={() => setShowPlanner(true)}
             className='w-full rounded-xl bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold hover:shadow-lg hover:shadow-[#00ff88]/30'
           >
@@ -500,8 +531,10 @@ export function ProfileContent() {
       {/* ✅ Logout Card - Added here */}
       <Card className='rounded-2xl border-border/50 mt-6'>
         <CardContent className='p-6'>
+          {!online && <p role='status' className='mb-3 text-xs text-muted-foreground'>Internet is required to sign out securely.</p>}
           <Button
             onClick={handleLogout}
+            disabled={!online}
             variant="destructive"
             className="w-full rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold"
           >

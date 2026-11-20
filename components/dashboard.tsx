@@ -14,6 +14,7 @@ import { TodayWorkoutCard } from '@/components/today-workout-card'
 import { WorkoutPlannerForm } from '@/components/workout-planner-form'
 import { FuelScoreCard } from '@/components/fuel-score-card'
 import { LogMealDialog } from '@/components/log-meal-dialog'
+import { getOfflineContent, saveOfflineContent } from '@/lib/offline-storage'
 
 interface Profile {
   id: string
@@ -241,6 +242,32 @@ export function Dashboard() {
     const fetchData = async () => {
       if (!user) return
 
+      if (!navigator.onLine) {
+        try {
+          const cached = await getOfflineContent<any>(user.id, 'dashboard')
+          if (cached) {
+            setProfile(cached.profile)
+            setTodayScans(cached.todayScans)
+            setTodayStats(cached.todayStats)
+            setWeekScans(cached.weekScans)
+            setWeekCount(cached.weekCount)
+            setWeekLabel(cached.weekLabel)
+            setFoodScans(cached.foodScans)
+            setDailyLogs(cached.dailyLogs)
+            setBodyScan(cached.bodyScan)
+            setWorkoutProfile(cached.workoutProfile)
+            setHasWorkoutPlan(cached.hasWorkoutPlan)
+            setTodayFuelScore(cached.todayFuelScore)
+            setYesterdayFuelScore(cached.yesterdayFuelScore)
+          }
+        } catch (error) {
+          console.error('Could not restore offline dashboard data:', error)
+        } finally {
+          setLoading(false)
+        }
+        return
+      }
+
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -378,6 +405,28 @@ export function Dashboard() {
         const yesterdayFuel = fuelData?.find((r) => r.score_date === yesterdayDate)?.fuel_score ?? null
         setTodayFuelScore(todayFuel)
         setYesterdayFuelScore(yesterdayFuel)
+
+        if (profileData && todayData && weekData && foodData && dailyLogData && bodyData && fuelData) {
+          try {
+            await saveOfflineContent(user.id, 'dashboard', {
+              profile: profileData,
+              todayScans,
+              todayStats: { calories: todayCalories, protein: todayProtein, carbs: todayCarbs, fats: todayFats },
+              weekScans: weeks,
+              weekCount: weeks.length,
+              weekLabel: label,
+              foodScans: foodData,
+              dailyLogs: dailyLogData,
+              bodyScan: bodyData[0] ?? null,
+              workoutProfile: workoutProfileData ?? null,
+              hasWorkoutPlan: hasPlan,
+              todayFuelScore: todayFuel,
+              yesterdayFuelScore: yesterdayFuel,
+            })
+          } catch (cacheError) {
+            console.error('Could not save offline dashboard data:', cacheError)
+          }
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -386,6 +435,8 @@ export function Dashboard() {
     }
 
     fetchData()
+    window.addEventListener('online', fetchData)
+    return () => window.removeEventListener('online', fetchData)
   }, [user])
 
   const streak = calculateStreakFromScans(foodScans, todayScans.length > 0)

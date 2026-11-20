@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from './supabase-browser'
 import type { User } from '@supabase/supabase-js'
+import { clearOfflineContent, getOfflineContent, saveOfflineContent } from './offline-storage'
 
 interface AuthContextType {
   user: User | null
@@ -19,6 +20,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+async function getOfflineUser(): Promise<User | null> {
+  try {
+    const identity = await getOfflineContent<{ id: string; email: string | null }>('offline', 'identity')
+    return identity ? { id: identity.id, email: identity.email, app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: '' } as User : null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,22 +39,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setUser(session?.user ?? null)
-        setLoading(false)
+    void (async () => {
+      try {
+        const { data: { session } } = await supabaseBrowser.auth.getSession()
+        if (!mounted) return
+        if (session?.user) {
+          setUser(session.user)
+          void saveOfflineContent('offline', 'identity', { id: session.user.id, email: session.user.email ?? null }).catch(() => undefined)
+        } else if (!navigator.onLine) {
+          if (mounted) setUser(await getOfflineUser())
+        } else {
+          setUser(null)
+        }
+      } catch {
+        if (mounted && !navigator.onLine) setUser(await getOfflineUser())
+      } finally {
+        if (mounted) setLoading(false)
       }
-    })
+    })()
 
-    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+    const refreshSession = async () => {
+      try {
+        const { data: { session } } = await supabaseBrowser.auth.getSession()
+        if (mounted) setUser(session?.user ?? null)
+      } catch {
+        if (mounted) setUser(null)
+      }
+    }
+    window.addEventListener('online', refreshSession)
+
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((event, session) => {
       if (mounted) {
-        setUser(session?.user ?? null)
+        const sessionUser = session?.user ?? null
         setLoading(false)
+        if (sessionUser) {
+          setUser(sessionUser)
+          void saveOfflineContent('offline', 'identity', { id: sessionUser.id, email: sessionUser.email ?? null }).catch(() => undefined)
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          void clearOfflineContent('offline').catch(() => undefined)
+        } else if (!navigator.onLine) {
+          void getOfflineUser().then((offlineUser) => { if (mounted) setUser(offlineUser) })
+        } else {
+          setUser(null)
+        }
       }
     })
 
     return () => {
       mounted = false
+      window.removeEventListener('online', refreshSession)
       subscription.unsubscribe()
     }
   }, [])
@@ -62,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabaseBrowser.auth.signOut()
     if (error) throw error
+    await Promise.all([
+      user ? clearOfflineContent(user.id) : Promise.resolve(),
+      clearOfflineContent('offline'),
+    ]).catch(() => undefined)
     setHasProfile(false)
   }
 
@@ -74,6 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfileLoading(true)
     try {
+      if (!navigator.onLine) {
+        const cachedDashboard = await getOfflineContent<{ profile?: unknown }>(user.id, 'dashboard')
+        setHasProfile(Boolean(cachedDashboard?.profile))
+        setProfileLoading(false)
+        return
+      }
+
       const { data: profile, error } = await supabaseBrowser
         .from('profiles')
         .select('id')
