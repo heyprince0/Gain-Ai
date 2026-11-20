@@ -614,7 +614,8 @@ function Step4SecondaryGoal({
         { id: 'Wider neck' },
         { id: 'Better Chest' },
         { id: 'Leg Strength' },
-        {id: 'Wider back' },
+        { id: 'Sprint Training' },
+        { id: 'Wider back' },
       ]
 
   const toggleGoal = (id: string) => {
