@@ -11,8 +11,8 @@ import "@/lib/pwa-install"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
-  title: "GainAi - AI-Powered Nutrition & Body Analysis",
-  description: "Your premium AI fitness tool for personalized nutrition, body analysis, and coaching.",
+  title: "GainAI | Personal Fitness",
+  description: "Build fitness habits with personalized workouts, nutrition tracking, AI food scanning, and progress tools in one place.",
   icons: { icon: "/logo.png" },
   manifest: "/manifest.json",
 }

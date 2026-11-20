@@ -42,7 +42,7 @@ const features = [
     icon: Smartphone,
     title: "Mobile Optimized",
     description:
-      "Designed mobile-first for on-the-go scanning at the gym, restaurant, or kitchen.",
+      "Designed mobile-first for scanning at home, at work, or on the go.",
   },
 ]
 
