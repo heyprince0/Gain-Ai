@@ -49,6 +49,7 @@ interface FormData {
   injuryInfo: string
   lifestyle: string | null
   athleteType: string | null
+  workoutNote: string
 }
 
 export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClose }: Props) {
@@ -66,6 +67,7 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClos
     injuryInfo: '',
     lifestyle: null,
     athleteType: null,
+    workoutNote: '',
   })
 
   // Fall back to onComplete if the parent didn't pass onClose
@@ -102,7 +104,7 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClos
   }
 
   const handleNext = () => {
-    if (currentStep < 8) setCurrentStep(currentStep + 1)
+    if (currentStep < 9) setCurrentStep(currentStep + 1)
   }
 
   const handleBack = () => {
@@ -154,7 +156,9 @@ export function WorkoutPlannerForm({ userId, existingBodyFat, onComplete, onClos
       // Build Gemini prompt
       const prompt = `You are an expert personal trainer. Create a weekly workout plan as JSON only. Return raw JSON with no markdown formatting and no code blocks.
 
-User details: age ${age}, gender ${gender || 'not specified'}, weight ${weight}kg, height ${height}cm, body fat ${formData.bodyFatPercent}%, main goal: ${formData.fitnessGoal}, secondary goals: ${formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : 'none'}, experience: ${formData.experienceLevel}, training days per week: ${formData.daysPerWeek}, lifestyle: ${formData.lifestyle}, training style: ${formData.athleteType}, injuries or limitations: ${formData.injuryInfo || 'none'}.
+User details: age ${age}, gender ${gender || 'not specified'}, weight ${weight}kg, height ${height}cm, body fat ${formData.bodyFatPercent}%, main goal: ${formData.fitnessGoal}, secondary goals: ${formData.secondaryGoal.length ? formData.secondaryGoal.join(', ') : 'none'}, experience: ${formData.experienceLevel}, training days per week: ${formData.daysPerWeek}, lifestyle: ${formData.lifestyle}, training style: ${formData.athleteType}, injuries or limitations: ${formData.injuryInfo || 'none'}, personal workout preferences and priorities: ${formData.workoutNote.trim() || 'none provided'}.
+
+Personalization request: Shape the workout around the user's personal note wherever safe and appropriate. Reflect their stated preferences in exercise selection, training structure, and emphasis while still respecting their goals, experience, schedule, and any injuries or limitations.
 
 Important: Design the workout plan specifically following how a ${formData.athleteType} trains — the exercise selection, rep ranges, rest periods, and weekly structure should reflect this athlete type.
 
@@ -322,7 +326,7 @@ Return exactly this JSON structure and nothing else:
               {getStepTitle(currentStep)}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Step {currentStep} of 8
+              Step {currentStep} of 9
             </p>
           </div>
 
@@ -336,7 +340,7 @@ Return exactly this JSON structure and nothing else:
           </button>
         </div>
 
-        <Progress value={(currentStep / 8) * 100} className="h-2" />
+        <Progress value={(currentStep / 9) * 100} className="h-2" />
       </div>
 
       {/* Step content */}
@@ -393,6 +397,12 @@ Return exactly this JSON structure and nothing else:
             onChange={(lifestyle) => updateFormData({ lifestyle })}
           />
         )}
+        {currentStep === 9 && (
+          <Step9WorkoutNote
+            value={formData.workoutNote}
+            onChange={(workoutNote) => updateFormData({ workoutNote })}
+          />
+        )}
       </div>
 
       {/* Navigation buttons */}
@@ -407,7 +417,7 @@ Return exactly this JSON structure and nothing else:
             Back
           </Button>
         )}
-        {currentStep < 8 ? (
+        {currentStep < 9 ? (
           <Button
             onClick={handleNext}
             disabled={!isStepValid(currentStep, formData)}
@@ -419,7 +429,7 @@ Return exactly this JSON structure and nothing else:
         ) : (
           <Button
             onClick={handleGeneratePlan}
-            disabled={!online || !isStepValid(8, formData)}
+            disabled={!online || !isStepValid(9, formData)}
             className="flex-1 bg-gradient-to-r from-[#00ff88] to-[#00cc6a] text-black font-semibold disabled:opacity-50 py-3"
           >
             Generate My Workout Plan ✨
@@ -641,7 +651,7 @@ function Step4SecondaryGoal({
       <div className="grid grid-cols-2 gap-3">
         {goals.map(({ id }) => {
           const isSelected = selected.includes(id)
-          const isMaxed = !isSelected && selected.length >= 3
+          const isMaxed = !isSelected && selected.length >= 5
           return (
             <button
               key={id}
@@ -807,6 +817,36 @@ function Step8Lifestyle({
   )
 }
 
+function Step9WorkoutNote({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div>
+      <label htmlFor="workout-note" className="mb-2 block text-sm font-medium text-foreground">
+        What matters to you? Shape your own workout
+      </label>
+      <p id="workout-note-help" className="mb-3 text-xs text-muted-foreground">
+        Share anything you&apos;d like the AI to consider, such as exercises you enjoy, areas to focus on, or equipment you have.
+      </p>
+      <textarea
+        id="workout-note"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        maxLength={1000}
+        aria-describedby="workout-note-help"
+        placeholder="Tell us what you want your workout to feel like... (optional)"
+        className="w-full resize-none rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground"
+        rows={5}
+      />
+      <p className="mt-2 text-right text-xs text-muted-foreground">{value.length}/1000</p>
+    </div>
+  )
+}
+
 function getStepTitle(step: number): string {
   const titles: Record<number, string> = {
     1: 'Your Body',
@@ -817,6 +857,7 @@ function getStepTitle(step: number): string {
     6: 'Workout Days',
     7: 'Any Injuries?',
     8: 'Your Lifestyle',
+    9: 'What Matters to You?',
   }
   return titles[step] || ''
 }
@@ -839,6 +880,8 @@ function isStepValid(step: number, formData: FormData): boolean {
       return true // Optional step
     case 8:
       return formData.lifestyle !== null
+    case 9:
+      return true // Personal note is optional
     default:
       return false
   }
