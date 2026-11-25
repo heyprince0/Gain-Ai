@@ -621,7 +621,7 @@ function Step4SecondaryGoal({
   const toggleGoal = (id: string) => {
     if (selected.includes(id)) {
       onChange(selected.filter((g) => g !== id))
-    } else if (selected.length < 3) {
+    } else if (selected.length < 5) {
       onChange([...selected, id])
     }
   }
