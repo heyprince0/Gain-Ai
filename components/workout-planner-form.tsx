@@ -610,7 +610,7 @@ function Step4SecondaryGoal({
         { id: 'Six Pack' },
         { id: 'Bigger Arms' },
         { id: 'Wider Shoulders' },
-        { id: 'Improve Cardio' },
+        { id: 'Cardio' },
         { id: 'Wider neck' },
         { id: 'Better Chest' },
         { id: 'Leg Strength' },
@@ -629,7 +629,7 @@ function Step4SecondaryGoal({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Pick up to 3</p>
+        <p className="text-xs text-muted-foreground">Pick up to 5</p>
         <button
           onClick={onSkip}
           className="text-muted-foreground text-sm font-medium hover:text-foreground"
